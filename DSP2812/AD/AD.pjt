@@ -1,0 +1,50 @@
+; Code Composer Project File, Version 2.0 (do not modify or remove this line)
+
+[Project Settings]
+ProjectName="AD"
+ProjectDir="E:\zhenghua\DSP2812\AD\"
+ProjectType=Executable
+CPUFamily=TMS320C28XX
+Tool="Compiler"
+Tool="CustomBuilder"
+Tool="DspBiosBuilder"
+Tool="Linker"
+Config="Debug"
+Config="Release"
+
+[Source Files]
+Source="ad.c"
+Source="C:\tidcs\c28\dsp_tbox\filter\clib\lib\filter.lib"
+Source="D:\Program Files\ccs3.3\C2000\cgtools\lib\rts2800.lib"
+Source="DSP28_DefaultIsr.c"
+Source="DSP28_GlobalVariableDefs.c"
+Source="DSP28_PieCtrl.c"
+Source="DSP28_PieVect.c"
+Source="DSP28_SysCtrl.c"
+Source="fir16.asm"
+Source="SRAM.cmd"
+
+["Compiler" Settings: "Debug"]
+Options=-g -q -fr"E:\zhenghua\DSP2812\AD\Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28
+
+["Compiler" Settings: "Release"]
+Options=-q -o3 -fr"E:\zhenghua\DSP2812\AD\Release" -d"LARGE_MODEL" -ml -v28
+
+["DspBiosBuilder" Settings: "Debug"]
+Options=-v28
+
+["DspBiosBuilder" Settings: "Release"]
+Options=-v28
+
+["Linker" Settings: "Debug"]
+Options=-q -c -m".\Debug\AD.MAP" -o".\Debug\AD.out" -x
+
+["Linker" Settings: "Release"]
+Options=-q -c -o".\Release\AD.out" -x
+
+["SRAM.cmd" Settings: "Debug"]
+LinkOrder=1
+
+["SRAM.cmd" Settings: "Release"]
+LinkOrder=1
+

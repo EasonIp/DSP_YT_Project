@@ -1,0 +1,16 @@
+-----------------------------  XINTF.pjt - Debug  -----------------------------
+[DSP28_DefaultIsr.c] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XINTF/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_DefaultIsr.c"
+
+[DSP28_GlobalVariableDefs.c] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XINTF/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_GlobalVariableDefs.c"
+
+[DSP28_PieCtrl.c] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XINTF/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_PieCtrl.c"
+
+[DSP28_PieVect.c] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XINTF/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_PieVect.c"
+
+[XINTF.c] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XINTF/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "XINTF.c"
+
+[Linking...] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -@"Debug.lkf"
+<Linking>
+
+Build Complete,
+  0 Errors, 0 Warnings, 0 Remarks.

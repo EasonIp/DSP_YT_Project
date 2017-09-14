@@ -1,0 +1,8 @@
+-z -q -c -o"./Debug/CAN.out" -x -i"D:/Program Files/ccs3.3/C2000/xdais/lib" -i"D:/Program Files/ccs3.3/bios_5_31_02/packages/ti/bios/lib" -i"D:/Program Files/ccs3.3/bios_5_31_02/packages/ti/rtdx/lib/c2000" -i"D:/Program Files/ccs3.3/C2000/cgtools/lib"
+"E:\zhenghua\DSP2812\CAN\Debug\CAN_TEST.obj"
+"E:\zhenghua\DSP2812\CAN\SRAM.cmd"
+"E:\zhenghua\DSP2812\CAN\Debug\DSP28_DefaultIsr.obj"
+"E:\zhenghua\DSP2812\CAN\Debug\DSP28_GlobalVariableDefs.obj"
+"E:\zhenghua\DSP2812\CAN\Debug\DSP28_PieCtrl.obj"
+"E:\zhenghua\DSP2812\CAN\Debug\DSP28_PieVect.obj"
+"D:\Program Files\ccs3.3\C2000\cgtools\lib\rts2800.lib"

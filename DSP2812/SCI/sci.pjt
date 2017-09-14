@@ -1,0 +1,69 @@
+; Code Composer Project File, Version 2.0 (do not modify or remove this line)
+
+[Project Settings]
+ProjectName="sci"
+ProjectDir="E:\zhenghua\DSP2812\SCI\"
+ProjectType=Executable
+CPUFamily=TMS320C28XX
+Tool="Compiler"
+Tool="CustomBuilder"
+Tool="DspBiosBuilder"
+Tool="Linker"
+Config="Debug"
+Config="Release"
+
+[Source Files]
+Source="C:\CCStudio_v3.3\C2000\cgtools\lib\rts2800.lib"
+Source="CodeStartBranch.asm"
+Source="DSP281x_MemCopy.c"
+Source="DSP28_DefaultIsr.c"
+Source="DSP28_GlobalVariableDefs.c"
+Source="DSP28_PieCtrl.c"
+Source="DSP28_PieVect.c"
+Source="DSP28_SysCtrl.c"
+Source="Passwords.asm"
+Source="SCI_TEST.c"
+Source="FLASH.cmd"
+
+["Compiler" Settings: "Debug"]
+Options=-g -q -fr"E:\zhenghua\DSP2812\SCI\Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28
+
+["Compiler" Settings: "Release"]
+Options=-q -o3 -fr"E:\zhenghua\DSP2812\SCI\Release" -d"LARGE_MODEL" -ml -v28
+
+["DspBiosBuilder" Settings: "Debug"]
+Options=-v28
+
+["DspBiosBuilder" Settings: "Release"]
+Options=-v28
+
+["Linker" Settings: "Debug"]
+Options=-q -c -m".\Debug\sci.map" -o".\Debug\sci.out" -x
+
+["Linker" Settings: "Release"]
+Options=-q -c -o".\Release\sci.out" -x
+
+["DSP28_DefaultIsr.c" Settings: "Debug"]
+LinkOrder=5
+
+["DSP28_GlobalVariableDefs.c" Settings: "Debug"]
+LinkOrder=8
+
+["DSP28_PieCtrl.c" Settings: "Debug"]
+LinkOrder=12
+
+["DSP28_PieVect.c" Settings: "Debug"]
+LinkOrder=13
+
+["DSP28_SysCtrl.c" Settings: "Debug"]
+LinkOrder=16
+
+["SCI_TEST.c" Settings: "Debug"]
+LinkOrder=2
+
+["FLASH.cmd" Settings: "Debug"]
+LinkOrder=1
+
+["FLASH.cmd" Settings: "Release"]
+LinkOrder=1
+

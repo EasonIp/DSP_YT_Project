@@ -1,0 +1,8 @@
+------------------------------  test.pjt - Debug  ------------------------------
+[test.c] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/test/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "test.c"
+
+[Linking...] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -@"Debug.lkf"
+<Linking>
+
+Build Complete,
+  0 Errors, 0 Warnings, 0 Remarks.

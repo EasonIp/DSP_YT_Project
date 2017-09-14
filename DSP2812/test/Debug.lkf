@@ -1,0 +1,4 @@
+-z -c -m"./Debug/test.map" -o"./Debug/test.out" -w -x -i"C:/CCStudio_v3.3/C2000/xdais/lib" -i"C:/CCStudio_v3.3/bios_5_31_02/packages/ti/bios/lib" -i"C:/CCStudio_v3.3/bios_5_31_02/packages/ti/rtdx/lib/c2000" -i"C:/CCStudio_v3.3/C2000/cgtools/lib"
+"E:\zhenghua\DSP2812\test\SRAM.cmd"
+"E:\zhenghua\DSP2812\test\Debug\test.obj"
+"C:\CCStudio_v3.3\C2000\cgtools\lib\rts2800.lib"

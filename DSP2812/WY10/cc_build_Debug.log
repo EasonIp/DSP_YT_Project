@@ -1,0 +1,9 @@
+------------------------------  WY10.pjt - Debug  ------------------------------
+[WY10.c] "C:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/WY10/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "WY10.c"
+"WY10.c", line 66: error: identifier "student" is undefined
+1 error detected in the compilation of "WY10.c".
+
+>> Compilation failure
+
+Build Complete,
+  1 Errors, 0 Warnings, 0 Remarks.

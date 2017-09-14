@@ -1,0 +1,8 @@
+-----------------------------  XZ_73.pjt - Debug  -----------------------------
+[XZ_73.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/XZ_73/XZ_73200/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "XZ_73.c"
+
+[Linking...] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -@"Debug.lkf"
+<Linking>
+
+Build Complete,
+  0 Errors, 0 Warnings, 0 Remarks.

@@ -1,0 +1,22 @@
+-------------------------  MyFIR__nonBIOS.pjt - Debug  -------------------------
+[DSP281x_CodeStartBranch.asm] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"../../DSP281x_examples/MyFIR__nonBIOS/Debug.lkf" "DSP281x_CodeStartBranch.asm"
+
+[DSP281x_DefaultIsr.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"../../DSP281x_examples/MyFIR__nonBIOS/Debug.lkf" "DSP281x_DefaultIsr.c"
+
+[DSP281x_PieCtrl.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"../../DSP281x_examples/MyFIR__nonBIOS/Debug.lkf" "DSP281x_PieCtrl.c"
+
+[DSP281x_PieVect.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"../../DSP281x_examples/MyFIR__nonBIOS/Debug.lkf" "DSP281x_PieVect.c"
+
+[DSP281x_SysCtrl.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"../../DSP281x_examples/MyFIR__nonBIOS/Debug.lkf" "DSP281x_SysCtrl.c"
+
+[fir16.asm] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"../../DSP281x_examples/MyFIR__nonBIOS/Debug.lkf" "fir16.asm"
+
+[DSP281x_GlobalVariableDefs.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"../../DSP281x_examples/MyFIR__nonBIOS/Debug.lkf" "DSP281x_GlobalVariableDefs.c"
+
+[MyFIR__nonBIOS.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -pdr -fr"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -fs"E:/zhenghua/DSP2812/DSP2812_FIR/MyFIR__nonBIOS/DSP281x_examples/MyFIR__nonBIOS/Debug" -i"../../DSP281x_headers/include" -i"../../DSP281x_common/include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28 -@"Debug.lkf" "MyFIR__nonBIOS.c"
+
+[Linking...] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -@"Debug.lkf"
+<Linking>
+
+Build Complete,
+  0 Errors, 0 Warnings, 0 Remarks.

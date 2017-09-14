@@ -1,0 +1,9 @@
+------------------------------  CAN.pjt - Debug  ------------------------------
+[CAN_TEST.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -q -fr"E:/zhenghua/DSP2812/CAN/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "CAN_TEST.c"
+"CAN_TEST.c", line 264: warning: last line of file ends without a newline
+
+[Linking...] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -@"Debug.lkf"
+<Linking>
+
+Build Complete,
+  0 Errors, 1 Warnings, 0 Remarks.

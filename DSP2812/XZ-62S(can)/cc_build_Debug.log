@@ -1,0 +1,23 @@
+-----------------------------  XZ-62S.pjt - Debug  -----------------------------
+[CodeStartBranch.asm] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "CodeStartBranch.asm"
+
+[DSP281x_MemCopy.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP281x_MemCopy.c"
+
+[DSP28_DefaultIsr.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_DefaultIsr.c"
+
+[DSP28_GlobalVariableDefs.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_GlobalVariableDefs.c"
+
+[DSP28_PieCtrl.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_PieCtrl.c"
+
+[DSP28_PieVect.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "DSP28_PieVect.c"
+
+[Passwords.asm] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "Passwords.asm"
+
+[XZ-62S.c] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -g -fr"E:/zhenghua/DSP2812/XZ-62S(can)/Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 -@"Debug.lkf" "XZ-62S.c"
+"XZ-62S.c", line 457: warning: last line of file ends without a newline
+
+[Linking...] "D:\Program Files\ccs3.3\C2000\cgtools\bin\cl2000" -@"Debug.lkf"
+<Linking>
+
+Build Complete,
+  0 Errors, 1 Warnings, 0 Remarks.

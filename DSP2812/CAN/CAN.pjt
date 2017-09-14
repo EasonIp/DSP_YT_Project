@@ -1,0 +1,62 @@
+; Code Composer Project File, Version 2.0 (do not modify or remove this line)
+
+[Project Settings]
+ProjectName="CAN"
+ProjectDir="E:\zhenghua\DSP2812\CAN\"
+ProjectType=Executable
+CPUFamily=TMS320C28XX
+Tool="Compiler"
+Tool="CustomBuilder"
+Tool="DspBiosBuilder"
+Tool="Linker"
+Config="Debug"
+Config="Release"
+
+[Source Files]
+Source="CAN_TEST.c"
+Source="D:\Program Files\ccs3.3\C2000\cgtools\lib\rts2800.lib"
+Source="DSP28_DefaultIsr.c"
+Source="DSP28_GlobalVariableDefs.c"
+Source="DSP28_PieCtrl.c"
+Source="DSP28_PieVect.c"
+Source="SRAM.cmd"
+
+["Compiler" Settings: "Debug"]
+Options=-g -q -fr"E:\zhenghua\DSP2812\CAN\Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28
+
+["Compiler" Settings: "Release"]
+Options=-q -o3 -fr"E:\zhenghua\DSP2812\CAN\Release" -d"LARGE_MODEL" -ml -v28
+
+["DspBiosBuilder" Settings: "Debug"]
+Options=-v28
+
+["DspBiosBuilder" Settings: "Release"]
+Options=-v28
+
+["Linker" Settings: "Debug"]
+Options=-q -c -o".\Debug\CAN.out" -x
+
+["Linker" Settings: "Release"]
+Options=-q -c -o".\Release\CAN.out" -x
+
+["CAN_TEST.c" Settings: "Debug"]
+LinkOrder=1
+
+["DSP28_DefaultIsr.c" Settings: "Debug"]
+LinkOrder=4
+
+["DSP28_GlobalVariableDefs.c" Settings: "Debug"]
+LinkOrder=7
+
+["DSP28_PieCtrl.c" Settings: "Debug"]
+LinkOrder=11
+
+["DSP28_PieVect.c" Settings: "Debug"]
+LinkOrder=12
+
+["SRAM.cmd" Settings: "Debug"]
+LinkOrder=1
+
+["SRAM.cmd" Settings: "Release"]
+LinkOrder=1
+

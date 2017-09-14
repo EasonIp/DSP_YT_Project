@@ -1,0 +1,8 @@
+-z -c -m"./Debug/XINTF.map" -o"./Debug/XINTF.out" -w -x -i"C:/CCStudio_v3.3/C2000/xdais/lib" -i"C:/CCStudio_v3.3/bios_5_31_02/packages/ti/bios/lib" -i"C:/CCStudio_v3.3/bios_5_31_02/packages/ti/rtdx/lib/c2000" -i"C:/CCStudio_v3.3/C2000/cgtools/lib"
+"E:\zhenghua\DSP2812\XINTF\SRAM.cmd"
+"E:\zhenghua\DSP2812\XINTF\Debug\DSP28_DefaultIsr.obj"
+"E:\zhenghua\DSP2812\XINTF\Debug\DSP28_GlobalVariableDefs.obj"
+"E:\zhenghua\DSP2812\XINTF\Debug\DSP28_PieCtrl.obj"
+"E:\zhenghua\DSP2812\XINTF\Debug\DSP28_PieVect.obj"
+"E:\zhenghua\DSP2812\XINTF\Debug\XINTF.obj"
+"C:\CCStudio_v3.3\C2000\cgtools\lib\rts2800.lib"

@@ -1,0 +1,45 @@
+; Code Composer Project File, Version 2.0 (do not modify or remove this line)
+
+[Project Settings]
+ProjectName="DSP281x"
+ProjectDir="E:\zhenghua\DSP2812\DSP2812_FIR\MyFIR__nonBIOS\DSP281x_examples\MyFIR__nonBIOS\"
+ProjectType=Executable
+CPUFamily=TMS320C28XX
+Tool="Compiler"
+Tool="CustomBuilder"
+Tool="DspBiosBuilder"
+Tool="Linker"
+Config="Debug"
+Config="Release"
+
+[Source Files]
+Source="..\..\DSP281x_common\source\DSP281x_CodeStartBranch.asm"
+Source="..\..\DSP281x_common\source\DSP281x_DefaultIsr.c"
+Source="..\..\DSP281x_common\source\DSP281x_PieCtrl.c"
+Source="..\..\DSP281x_common\source\DSP281x_PieVect.c"
+Source="..\..\DSP281x_common\source\DSP281x_SysCtrl.c"
+Source="..\..\DSP281x_common\source\fir16.asm"
+Source="..\..\DSP281x_headers\source\DSP281x_GlobalVariableDefs.c"
+Source="D:\Program Files\ccs3.3\C2000\cgtools\lib\rts2800.lib"
+Source="MyFIR__nonBIOS.c"
+Source="..\..\DSP281x_common\cmd\F2812_EzDSP_RAM_lnk.cmd"
+Source="..\..\DSP281x_headers\cmd\DSP281x_Headers_nonBIOS.cmd"
+
+["Compiler" Settings: "Debug"]
+Options=-g -q -pdr -fr"E:\zhenghua\DSP2812\DSP2812_FIR\MyFIR__nonBIOS\DSP281x_examples\MyFIR__nonBIOS\Debug" -fs"E:\zhenghua\DSP2812\DSP2812_FIR\MyFIR__nonBIOS\DSP281x_examples\MyFIR__nonBIOS\Debug" -i"..\..\DSP281x_headers\include" -i"..\..\DSP281x_common\include" -d"_DEBUG" -d"LARGE_MODEL" -ml -mt -v28
+
+["Compiler" Settings: "Release"]
+Options=-q -o3 -fr"E:\zhenghua\DSP2812\DSP2812_FIR\MyFIR__nonBIOS\DSP281x_examples\MyFIR__nonBIOS\Release" -d"LARGE_MODEL" -ml -v28
+
+["DspBiosBuilder" Settings: "Debug"]
+Options=-v28
+
+["DspBiosBuilder" Settings: "Release"]
+Options=-v28
+
+["Linker" Settings: "Debug"]
+Options=-q -c -m".\Debug\MyFIR__nonBIOS.map" -o".\Debug\MyFIR__nonBIOS.out" -stack0x400 -w -x -i"..\..\DSP281x_headers\include" -l"rts2800_ml.lib"
+
+["Linker" Settings: "Release"]
+Options=-q -c -o".\Release\Example_281xCpuTimer.out" -x
+

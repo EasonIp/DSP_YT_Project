@@ -1,0 +1,36 @@
+; Code Composer Project File, Version 2.0 (do not modify or remove this line)
+
+[Project Settings]
+ProjectDir="E:\zhenghua\DSP2812\test\"
+ProjectType=Executable
+CPUFamily=TMS320C28XX
+Tool="Compiler"
+Tool="CustomBuilder"
+Tool="DspBiosBuilder"
+Tool="Linker"
+Config="Debug"
+Config="Release"
+
+[Source Files]
+Source="C:\CCStudio_v3.3\C2000\cgtools\lib\rts2800.lib"
+Source="test.c"
+Source="SRAM.cmd"
+
+["Compiler" Settings: "Debug"]
+Options=-g -fr"$(Proj_dir)\Debug" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28
+
+["Compiler" Settings: "Release"]
+Options=-o3 -fr"$(Proj_dir)\Release" -d"LARGE_MODEL" -ml -v28
+
+["Linker" Settings: "Debug"]
+Options=-c -m".\Debug\test.map" -o".\Debug\test.out" -w -x
+
+["Linker" Settings: "Release"]
+Options=-c -m".\Release\test.map" -o".\Release\test.out" -w -x
+
+["SRAM.cmd" Settings: "Debug"]
+LinkOrder=1
+
+["SRAM.cmd" Settings: "Release"]
+LinkOrder=1
+

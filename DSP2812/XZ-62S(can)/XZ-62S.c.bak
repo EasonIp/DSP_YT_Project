@@ -1,0 +1,2276 @@
+ /* 
+   * 标题：尾翼防除冰控制器软件
+   * 文件名：XZ-62S.pit
+   * 时间：2012.3.7
+   * 版本：第2.02版
+   * 版权：181厂 
+   * 作者：郑华  
+*/
+
+#include "DSP28_Device.h"
+#include "math.h"
+
+#define RAMBASE1 0x0080000      //保存版本号首地址
+#define RAMBASE2 0x0080005      //保存故障次数首地址
+#define RAMBASE3 0x0080009      //保存状态信息码首地址
+#define RAMBASE6 0x0100000      //总线地址,对应于片选信号XZCS6 
+#define ID1 0x01200000       //左控制器发送到右控制器MSGID
+#define ID2 0x01300000       //左控制器发送到试验器MSGID
+#define ID3 0x02100000       //右控制器发送到左控制器MSGID
+#define ID4 0x03100000       //试验器发送到左控制器MSGID
+#define HIGH_COUNT 3426    //2.51*4095/3.0
+#define LOW_COUNT 1733     //1.27*4095/3.0
+
+extern Uint16 RamfuncsLoadStart;
+extern Uint16 RamfuncsLoadEnd;
+extern Uint16 RamfuncsRunStart;  
+
+#pragma CODE_SECTION(InitFlash, "ramfuncs");
+
+void InitFlash(void)
+{
+   asm(" EALLOW"); 
+   FlashRegs.FPWR.bit.PWR = 3; 
+   FlashRegs.FSTATUS.bit.V3STAT = 1; 
+   FlashRegs.FOPT.bit.ENPIPE = 1;
+   FlashRegs.FBANKWAIT.bit.RANDWAIT = 5;
+   FlashRegs.FBANKWAIT.bit.PAGEWAIT = 5;
+   FlashRegs.FSTDBYWAIT.bit.STDBYWAIT = 0x01FF;
+   FlashRegs.FACTIVEWAIT.bit.ACTIVEWAIT = 0x01FF;
+  
+   asm(" EDIS");
+   asm(" RPT #7 || NOP");
+}
+
+
+////////////////变量申明/////////////////////////////////               
+char j=0;                   //短路通道个数
+char Short_BIT[10]={0,0,0,0,0,0,0,0,0,0}; 
+Uint16 channel;             /*采集通道变量*/
+Uint16 n=0;                 /*数据个数*/
+Uint16 a1,a2;               /*采集校正电压*/
+Uint16 a3;     
+float gain;                 /*采样增益*/
+float offest;               /*采样偏置系数*/
+Uint16 *rambase1;			 //定义外部接口指针*/
+Uint16 *rambase2;
+Uint16 *rambase3;
+Uint16 tmp,tmp1;             //定义外部接口变量*/
+Uint16 *rambase6;      
+Uint16 LowWord_271_Send;     //发送LABLE271低字节
+Uint16 HighWord_271_Send;    //发送LABLE271高字节
+Uint16 LowWord_272_Send;
+Uint16 HighWord_272_Send; 
+Uint16 LowWord_273_Send;
+Uint16 HighWord_273_Send; 
+Uint16 LowWord_300_Send;          //发送软件版本号
+Uint16 HighWord_300_Send;
+Uint16 LowWord_301_Send;       
+Uint16 HighWord_301_Send;
+Uint16 LowWord_302_Send;
+Uint16 HighWord_302_Send;
+Uint16 LowWord_303_Send;
+Uint16 HighWord_303_Send;
+Uint16 LowWord_304_Send;           //发送硬件版本号
+Uint16 HighWord_304_Send;
+Uint16 LowWord_305_Send;       
+Uint16 HighWord_305_Send;
+Uint16 LowWord_306_Send;
+Uint16 HighWord_306_Send;
+Uint16 LowWord_307_Send;
+Uint16 HighWord_307_Send;
+Uint16 LowWord_310_Send;
+Uint16 HighWord_310_Send;
+Uint16 LowWord_Receive_Send=0x0;
+Uint16 HighWord_Receive_Send=0x0;
+Uint16 LowWord_Receive;			     //接收低字节
+Uint16 HighWord_Receive;			 //接收高字节
+float Current;                   /*采集断相电流*/
+Uint32 Count_System_Error=0;        //故障次数记录
+char m=0;                           //除冰启动确认次数 
+char Count_Left1_dx=0;               //左断路次数
+char Count_Left2_dx=0;
+char Count_Right1_dx=0;             // 右断路次数  
+char Count_Right2_dx=0;  
+char Count_Deice_Startup=0;       //除冰控制按扭按压次数
+char count1=0;                   //1s计数变量 
+char Count_CPLD_Time=0;            //0.5s计数变量CPLD监控DSP时钟
+char Count_429_Send=0;               //429发送
+char Count_Ground_Heat=0;
+Uint16 Count_Control_Heat=0;      //加热监控时间变量
+char Count_5d_Control=0;       //热刀监测时间变量
+char Count_abc_Control=0;      //各区域监测时间变量
+Uint16 Time1_Heat=250;                //加热时间
+Uint16 Time2_Heat=250;                //加热时间
+char t1=10;                        //监测时间间隔
+Uint16 Receive_274_Count=0;      //接收到轮载信号的次数
+Uint16 Error_274_Count=0;        //未收到轮载信号的次数或错误信息
+float temperature;               //大气静温
+Uint16 Receive_213_Count=0;     //接收到大气温度信号的次数
+Uint16 Error_213_Count=0;       //未收到大气温度信号的次数或错误信息
+Uint16 Count_Can_Send=0;
+Uint16 Count_Can_Receive=0;
+char EvaTimer1InterruptCount=0;
+char EvaTimer2InterruptCount=0;                
+char Flag_Controller_Judge;        //左/右控制器标志
+char Flag_ADCadjust_Finish=0;     //ADC校正标志Flag_ADCadjust_Finish=1完成
+char Flag_PowerOnBIT_OK=0;        //上电自检正常 
+char Flag_PowerOnBIT_Finish=0;    //上电自检完成标志  
+char Flag_GroudBIT_Start=0;        //地面维护开始标志=1  
+char Flag_RightGroudBIT_Start=0;   //右控制器工作           
+char Flag_GroudBIT_OK=0;          //地面维护正常
+char Flag_Ground_Heat=0;           //启动地面加热时序=1
+char Flag_LeftGroudBIT_Finish=0;      //左控制器地面维护=1完成
+char Flag_GroudBIT_Finish=0;       //地面自检完成标志
+char Flag_CircuitOpen_Inspect=0;    //缺相监控0.5延时标志Flag_CircuitOpen_Inspect=1完成
+char Flag_Air=0;                   //飞机在空中标志Flag_Air=1
+char Flag_Left1_OK=0;              //主控制器左1没有断路
+char Flag_Left2_OK=0;              //主控制器左2没有断路
+char Flag_Left3_OK=0;              //主控制器左3没有断路
+char Flag_Left4_OK=0;              //主控制器左4没有断路
+char Flag_Right1_OK=0;             //主控制器右1没有断路
+char Flag_Right2_OK=0;             //主控制器右2没有断路
+char Flag_Right3_OK=0;             //主控制器右3没有断路
+char Flag_Right4_OK=0;             //主控制器右4没有断路
+char Flag_Controller_Work=0;      //主控制器正常
+char Flag_Deice_Start=0;             //除冰启动标志Flag_Deice_Start=1
+char Flag_1abcHeat_OK=0;             //1区加热正常
+char Flag_2abcHeat_OK=0;             //2区加热正常
+char Flag_3abcHeat_OK=0;             //3区加热正常
+char Flag_4abcHeat_OK=0;             //4区加热正常
+char Flag_Controller_Replace=0;    //按纽主/辅切换标志
+char Flag_Error_Replace=0;         //故障时切换标志
+char Flag_429_Receive=0;          //开始接受429标志Flag_429_Receive=1
+char Flag_274_Receive=0;           //274轮载接收标志Flag_274_Receive=1
+char Flag_274_Judge=0;             //274轮载接收判断标志
+char Flag_213_Receive=0;           //213静温接收标志Flag_213_Receive=1
+char Flag_213_Judge=0;            //213静温接收判断标志
+char Flag_Temperature_Over=0;      //大气静温<5
+char Flag_Temperature1_Bad=0;       //大气环境=1严酷
+char Flag_Temperature2_Bad=0;       //大气环境=1严酷
+char Flag_Work_End=0;              //控制器工作结束标志
+char Flag_Otherside_OK=0;         //分系统另一边正常
+Uint32 TestMbox1,TestMbox2;     //邮箱2接收到的信息
+Uint32 TestMbox3,TestMbox4;      //邮箱3接收到的信息
+
+/////////////////函数申明/////////////////////////////////
+
+void InitSysCtrl(void);
+void InitGpio(void);
+void Init_eva_timer1(void);
+void Init_eva_timer2(void);
+void InitXintf(void);
+void InitAdc(void);
+void InitXINT13(void);
+void InitXINT1(void);
+void InitXINT2(void);
+void InitECan(void);
+void InitPDPINTA(void);
+void InitPDPINTB(void);
+void Init429(void);
+void VersionNumber_Hardware_Get(void);
+void VersionNumber_Hardware_Send(void);
+void VersionNumber_Software_Send(void);
+void ADC_adjust(void);
+void ADC_sample(void);
+void CPU_BIT(void);
+void Sensor_Short_BIT(void);
+void PowerOn_BIT(void);
+void Ground_BIT(void);
+void Heat_Time_Control(void);
+void Controller_Can_Send(void);
+void ControllerTester_Can_Send(void);
+void Data1_Save(void);
+void Data2_Save(void);
+void Data3_Save(void);
+void Data1_Read(void);
+void Data2_Read(void);
+void Data3_Read(void);
+void Store_Data_Clear(void);
+void E429_Send(void);
+void ZDLJC(void);
+void YDLJC(void);
+void ZKLJC(void);
+void YKLJC(void);
+void QXJC(void);
+void System_Heat(void);
+interrupt void eva_timer1_isr(void);
+interrupt void eva_timer2_isr(void);
+interrupt void ad_isr(void);
+interrupt void ECAN0_ISR(void);
+interrupt void XINT13_isr(void);
+interrupt void XINT1_isr(void);
+interrupt void XINT2_isr(void);
+interrupt void PDPINTA_isr(void);
+interrupt void PDPINTB_isr(void);
+
+
+//////////////////////系统初始化//////////////////////////////////
+void InitSysCtrl(void)
+{  Uint32 i=0;
+   EALLOW;
+   
+   DevEmuRegs.M0RAMDFT = 0x0300;
+   DevEmuRegs.M1RAMDFT = 0x0300;
+   DevEmuRegs.L0RAMDFT = 0x0300;
+   DevEmuRegs.L1RAMDFT = 0x0300;
+   DevEmuRegs.H0RAMDFT = 0x0300;
+        
+   SysCtrlRegs.WDCR= 0x0068;   //禁止看门狗
+
+   SysCtrlRegs.PLLCR = 0x8;   //主频=30*8/2=120MHz
+  
+   for(i=0; i<5000; i++){}   // 为了频率稳定，必须延时一段时间
+      
+   SysCtrlRegs.HISPCP.all = 0x0002;  //高速外设时钟=120/4=30
+   SysCtrlRegs.LOSPCP.all = 0x0002;	 //低速外设时钟=120/4=30
+ 
+   SysCtrlRegs.PCLKCR.bit.EVAENCLK=1;  //使能EVA模块的高速外设时钟
+   SysCtrlRegs.PCLKCR.bit.EVBENCLK=1;  //使能EVB模块的高速外设时钟
+   SysCtrlRegs.PCLKCR.bit.ADCENCLK=1;  //使能ADC模块的高速外设时钟
+   SysCtrlRegs.PCLKCR.bit.ECANENCLK=1; //使能CAN外设的系统时钟
+				
+   EDIS;	
+}
+
+///////////////////IO口初始化//////////////////////////////////
+void InitGpio(void)
+{
+   EALLOW;
+   GpioMuxRegs.GPAMUX.all=0x0000;   //GPIOA设置为I/O口 
+   GpioMuxRegs.GPADIR.all=0xFFFF;   //A0-A15设置为输出	
+   GpioDataRegs.GPADAT.all=0x23e; 
+
+   GpioMuxRegs.GPBMUX.all=0x0000;    //GPIOB设置为I/O口 
+   GpioMuxRegs.GPBDIR.all=0xFFDF;    //B5设置为输入，其余设置为输出	
+   GpioDataRegs.GPBDAT.all=0x8001;   
+     
+   GpioMuxRegs.GPFMUX.all=0x00c0;  //设置GPIOF6/7为eCAN口,其余设置为I/O口
+   GpioMuxRegs.GPFDIR.all=0xa00;
+   GpioDataRegs.GPFDAT.bit.GPIOF9=1;
+   GpioDataRegs.GPFDAT.bit.GPIOF11=0;
+   EDIS;
+}	
+
+///////////////////外部中断13初始化//////////////////////////////////
+void InitXINT13(void)
+{  GpioMuxRegs.GPEMUX.bit.XNMI_XINT13_GPIOE2=1; //设置中断13功能 
+   XIntruptRegs.XNMICR.all=0x2;	 //下降沿生成中断
+}
+
+///////////////////外部中断1初始化//////////////////////////////////
+void InitXINT1(void)
+{  GpioMuxRegs.GPEMUX.bit.XINT1_XBIO_GPIOE0=1; //设置中断1功能 
+   XIntruptRegs.XINT1CR.all=0x5;      //上升沿生成中断
+}
+
+///////////////////外部中断2初始化//////////////////////////////////
+void InitXINT2(void)
+{  GpioMuxRegs.GPEMUX.bit.XINT2_ADCSOC_GPIOE1=1; //设置外部中断2功能 
+   XIntruptRegs.XINT2CR.all=0x5;      //上升沿生成中断
+}
+
+///////////////////PDPINTA中断初始化//////////////////////////////////
+void InitPDPINTA(void)
+{  GpioMuxRegs.GPDMUX.bit.T1CTRIP_PDPA_GPIOD0=1;
+   EvaRegs.EVAIMRA.bit.PDPINTA=1;   //市鞵DPINTA中
+   EvaRegs.EVAIFRA.bit.PDPINTA=1;   //清除PDPINTA中断标志              
+}
+
+///////////////////PDPINTB中断初始化//////////////////////////////////
+void InitPDPINTB(void)
+{  GpioMuxRegs.GPDMUX.bit.T3CTRIP_PDPB_GPIOD5=1; //置瞎δ?
+   EvbRegs.EVBIMRA.bit.PDPINTB=1;   //市鞵DPINTB中
+   EvbRegs.EVBIFRA.bit.PDPINTB=1;   //清除PDPINTB中断标志              
+}
+
+///////////////////定时器1初始化（100mS)/////////////////////////////////
+void Init_eva_timer1(void)
+{
+  
+   EvaRegs.GPTCONA.all = 0;   //初始化定时器1并设置定时器1寄存器
+   EvaRegs.EVAIMRA.bit.T1PINT = 1;  //允许定逼?周期中断
+   EvaRegs.EVAIFRA.bit.T1PINT = 1;  //清定?周期中断标志
+             
+   EvaRegs.T1CON.all = 0x170C;  //Timer1为连续增计数模式，预分频值128
+	                             //使用内部高速外设时钟
+   EvaRegs.T1PR = 0x5b8d;   //Timer1的期寄存器=0.1*30MHz/128
+   EvaRegs.T1CNT = 0x0000;  //Timer1的计数?
+
+}
+
+///////////////////定时器2初始化（100mS）//////////////////////////////////
+void Init_eva_timer2(void)
+{ 
+    EvaRegs.GPTCONA.all = 0;   //初始化定逼?并设置定时器2寄存器
+    EvaRegs.EVAIMRB.bit.T2PINT = 1;  //允许定时器2周期中断
+    EvaRegs.EVAIFRB.bit.T2PINT = 1;  //清除定时器2周期中断标志
+             
+    EvaRegs.T2CON.all = 0x170C;  //Timer2黾剖模式，预分频值为128，
+	                             //使用内部高速外设时钟
+	EvaRegs.T2PR = 0x5b8d;   //Timer2的周期寄存器=0.1*30MHz/128
+	EvaRegs.T2CNT = 0x0000;  //Timer2的计数器清
+}
+
+///////////////////AD初始化//////////////////////////////////
+void InitAdc(void)
+{	Uint32 i=0;	
+	AdcRegs.ADCTRL1.bit.RESET=1;  //复位ADC模块
+	for(i=0;i<5000;i++)	 {} 
+	AdcRegs.ADCTRL1.bit.RESET=0;
+	AdcRegs.ADCTRL1.bit.SUSMOD=3;
+	AdcRegs.ADCTRL1.bit.ACQ_PS=0;
+	AdcRegs.ADCTRL1.bit.CPS=0;     
+	AdcRegs.ADCTRL1.bit.CONT_RUN=0; //AD为启动/停止模式
+	AdcRegs.ADCTRL1.bit.SEQ_CASC=1; //16级联模式
+
+	AdcRegs.ADCTRL3.bit.ADCEXTREF = 0;    //使用内部参考电压
+     	
+	AdcRegs.ADCTRL3.bit.ADCBGRFDN=3; //带间隙参考电路上电
+	for(i=0;i<10000;i++) 
+	{
+		for(i=0;i<10000;i++);
+	}           //等待稳定
+	AdcRegs.ADCTRL3.bit.ADCPWDN=1;  //其它电路上电
+	for(i=0;i<5000;i++)	 {}           //等待稳定
+	AdcRegs.ADCTRL3.bit.ADCCLKPS=15;  
+	AdcRegs.ADCTRL3.bit.SMODE_SEL=0;  //顺序采样
+	
+	AdcRegs.MAX_CONV.bit.MAX_CONV=15;  //采样通道为16
+  
+    AdcRegs.CHSELSEQ1.all= channel;   
+    AdcRegs.CHSELSEQ2.all= channel;
+    AdcRegs.CHSELSEQ3.all= channel;
+    AdcRegs.CHSELSEQ4.all= channel;
+
+    AdcRegs.ADCTRL2.all=0x8c04;
+
+	////////////采用定时器4启动AD转换/////////////////////
+    EvbRegs.GPTCONB.all=0x400;    //定时器4周期中断启动AD转换
+    EvbRegs.EVBIMRB.bit.T4PINT = 1;  //允许定时器4周期中断
+    EvbRegs.EVBIFRB.bit.T4PINT = 1;  //清除定时器4周期中断标志
+             
+    EvbRegs.T4CON.all = 0x170C;  //Timer4为连续增计数模式，预分频值为128，
+	                             //使用内部高速外设时钟
+	EvbRegs.T4PR = 0xea;     //Timer4的周期寄存器=0.001*30MHz/128
+	EvbRegs.T4CNT = 0x0000;  //Timer4的计数器清零
+				
+	AdcRegs.ADC_ST_FLAG.bit.INT_SEQ1_CLR=1;
+	AdcRegs.ADC_ST_FLAG.bit.INT_SEQ2_CLR=1;				
+}	
+	
+////////////////////外部接口初始化/////////////////////////
+void InitXintf(void)
+{  
+    XintfRegs.XINTCNF2.bit.XTIMCLK = 0x0001;  //所有zone的时序是基于XTIMCLK = SYSCLKOUT/2 
+    XintfRegs.XINTCNF2.bit.WRBUFF = 3;   //设置3个写缓冲
+	XintfRegs.XINTCNF2.bit.CLKOFF = 0;  //使能XCLKOUT
+	XintfRegs.XINTCNF2.bit.CLKMODE = 0;  //设置XCLKOUT=XTIMCLK
+    	
+	XintfRegs.XTIMING2.bit.X2TIMING=1;
+	//Zone2写时序
+	XintfRegs.XTIMING2.bit.XWRLEAD = 1;    //写操作引导阶段的周期=2*XTIMCLK
+	XintfRegs.XTIMING2.bit.XWRACTIVE = 7;   //写操作激活阶段等待状态的周期=14*XTIMCLK
+	XintfRegs.XTIMING2.bit.XWRTRAIL = 2;    //写操作跟踪阶段的周期=4*XTIMCLK
+   //Zone2读时序
+	XintfRegs.XTIMING2.bit.XRDLEAD = 1;    //读操作引导阶段的周期=2*XTIMCLK
+	XintfRegs.XTIMING2.bit.XRDACTIVE=7;	    //读操作激活阶段等待状态的周期=14*XTIMCLK
+	XintfRegs.XTIMING2.bit.XRDTRAIL = 2;   //读操作跟踪阶段的周期=4*XTIMCLK
+	//不加倍时序
+	XintfRegs.XTIMING2.bit.X2TIMING = 0; 
+   //Zone2不对READY信号采样
+    XintfRegs.XTIMING2.bit.USEREADY = 0;
+    XintfRegs.XTIMING2.bit.READYMODE = 0;
+    XintfRegs.XTIMING2.bit.XSIZE = 3;   //16位接口，唯一有效的设置
+
+    XintfRegs.XBANK.bit.BANK = 2;   //使能内部区域2
+    XintfRegs.XBANK.bit.BCYC = 3;  //连续访问之间添加了3个XTIMCLK周期
+
+	//Zone6写时序
+	XintfRegs.XTIMING6.bit.XWRLEAD = 1;    //写操作引导阶段的周期=XTIMCLK
+	XintfRegs.XTIMING6.bit.XWRACTIVE = 7;   //写操作激活阶段等待状态的周期=XTIMCLK
+	XintfRegs.XTIMING6.bit.XWRTRAIL = 3;    //写操作跟踪阶段的周期=XTIMCLK
+   //Zone6读时序
+	XintfRegs.XTIMING6.bit.XRDLEAD = 1;    //读操作引导阶段的周期=XTIMCLK
+	XintfRegs.XTIMING6.bit.XRDACTIVE=1;	    //读操作激活阶段等待状态的周期=XTIMCLK
+	XintfRegs.XTIMING6.bit.XRDTRAIL = 1;   //读操作跟踪阶段的周期=XTIMCLK
+	//不加倍时序
+	XintfRegs.XTIMING6.bit.X2TIMING = 0; 
+   //Zone6不对READY信号采样
+    XintfRegs.XTIMING6.bit.USEREADY = 0;
+    XintfRegs.XTIMING6.bit.READYMODE = 0;
+    XintfRegs.XTIMING6.bit.XSIZE = 3;   //16位接口，唯一有效的设置
+
+    XintfRegs.XBANK.bit.BANK = 6;   //使能内部区域6
+    XintfRegs.XBANK.bit.BCYC = 3;  //连续访问之间添加了3个XTIMCLK周期
+}
+
+//////////////////429初始化//////////////////////////////
+void Init429(void)
+{  Uint32 i=0;
+   Uint16 Control_Word;         //429初始化*/
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffdf;  //初始化3282
+   Control_Word=0x0020;
+   rambase6=(Uint16 *)RAMBASE6;
+   *rambase6=Control_Word;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x30;
+}
+
+////////////////////ECAN初始化/////////////////////////
+void InitECan(void)
+{
+	EALLOW;
+	ECanaRegs.CANTIOC.bit.TXFUNC = 1;
+	ECanaRegs.CANRIOC.bit.RXFUNC = 1;
+	EDIS;
+		
+	ECanaRegs.CANME.all = 0;  //禁止所有邮箱
+
+	if(Flag_Controller_Judge==0)
+	{ ECanaRegs.CANMD.bit.MD0=0;  //邮箱0发送到右控制器
+      ECanaRegs.CANMD.bit.MD1=0;  //邮箱1发送到试验器
+      ECanaRegs.CANMD.bit.MD2=1;  //邮箱2接收右控制器信息
+      ECanaRegs.CANMD.bit.MD3=1;  //邮箱3接收试验器信息
+     	
+	  ECanaMboxes.MBOX0.MID.all = ID1;	
+	  ECanaMboxes.MBOX1.MID.all = ID2;
+	  ECanaMboxes.MBOX2.MID.all = ID3;
+	  ECanaMboxes.MBOX3.MID.all = ID4;
+	}
+    else
+	{ ECanaRegs.CANMD.bit.MD0=0;  //邮箱0发送到左控制器
+      ECanaRegs.CANMD.bit.MD2=1;  //邮箱2接收左控制器信息
+    	
+	  ECanaMboxes.MBOX0.MID.all = ID3;	
+	  ECanaMboxes.MBOX2.MID.all = ID1;
+	}
+			
+	ECanaRegs.CANME.bit.ME0=1;	//邮箱使能
+    ECanaRegs.CANME.bit.ME1=1;
+    ECanaRegs.CANME.bit.ME2=1;
+	ECanaRegs.CANME.bit.ME3=1;
+		
+	ECanaMboxes.MBOX0.MCF.bit.DLC = 8;	//数据长度 8个BYTE
+	ECanaMboxes.MBOX1.MCF.bit.DLC = 8;
+	ECanaMboxes.MBOX2.MCF.bit.DLC = 8;
+	ECanaMboxes.MBOX3.MCF.bit.DLC = 8;
+	
+	ECanaMboxes.MBOX0.MCF.bit.RTR = 0;	
+	ECanaMboxes.MBOX1.MCF.bit.RTR = 0;  
+	ECanaMboxes.MBOX2.MCF.bit.RTR = 0;	
+	ECanaMboxes.MBOX3.MCF.bit.RTR = 0; 
+
+	EALLOW;	
+	ECanaRegs.CANMIM.all = 0xFFFFFFFF;	//邮箱屏蔽使能
+	ECanaRegs.CANMC.bit.CCR = 1;
+	EDIS;
+	
+	while(ECanaRegs.CANES.bit.CCE != 1){}
+	
+	EALLOW;	
+	ECanaRegs.CANBTC.bit.BRP = 79;	 //125Kb/s
+	ECanaRegs.CANBTC.bit.TSEG2 = 3;
+	ECanaRegs.CANBTC.bit.TSEG1 = 6;
+	ECanaRegs.CANMC.bit.CCR = 0;
+	EDIS;
+	
+    while(ECanaRegs.CANES.bit.CCE != 0){}
+	
+	EALLOW;
+	ECanaRegs.CANMC.bit.STM = 0; //正常工作模式 
+	ECanaRegs.CANMC.bit.SCM = 0; //scc模式
+    ECanaRegs.CANMC.bit.DBO = 0; //首先接收或发送数据的最哂行ё纸?
+	EDIS;
+	
+	EALLOW;
+	ECanaRegs.CANMIM.all = 0xFFFFFFFF;
+	ECanaRegs.CANMIL.all = 0;
+	ECanaRegs.CANGIF0.all = 0xFFFFFFFF;
+	ECanaRegs.CANGIM.bit.I0EN = 1;
+	ECanaRegs.CANGIM.bit.I1EN = 1;
+	ECanaRegs.CANGIM.all = 0x3ff07;
+	EDIS;
+	PieCtrl.PIEIER9.bit.INTx6 = 1;
+	PieCtrl.PIEIER9.bit.INTx5 = 1;
+}
+
+///////////////////////////////////////////////////
+
+void OpenEepromDataProtection(void)
+{
+   rambase1=(Uint16 *)RAMBASE1;  
+   rambase1=rambase1+0x5555;
+   tmp=0xaa;
+   *rambase1=tmp&0xff; 
+   
+   rambase1=(Uint16 *)RAMBASE1;  
+   rambase1=rambase1+0x2aaa;
+   tmp=0x55;
+   *rambase1=tmp&0xff; 	
+
+   rambase1=(Uint16 *)RAMBASE1;  
+   rambase1=rambase1+0x5555;
+   tmp=0x80;
+   *rambase1=tmp&0xff; 	
+
+   rambase1=(Uint16 *)RAMBASE1;  
+   rambase1=rambase1+0x5555;
+   tmp=0xaa;
+   *rambase1=tmp&0xff; 	
+
+   rambase1=(Uint16 *)RAMBASE1;  
+   rambase1=rambase1+0x2aaa;
+   tmp=0x55;
+   *rambase1=tmp&0xff; 	
+
+   rambase1=(Uint16 *)RAMBASE1;  
+   rambase1=rambase1+0x5555;
+   tmp=0x20;
+   *rambase1=tmp&0xff; 		
+} 
+ 
+
+
+///////////////控制器代码交换///////////////////////////////////
+void Controller_Can_Send(void)
+{   Uint32 i=0;
+    ECanaMboxes.MBOX0.MDRL.all = ((Uint32)HighWord_271_Send<<16)+(Uint32)LowWord_271_Send;
+	ECanaMboxes.MBOX0.MDRH.all = 0x444d3143;
+	ECanaRegs.CANTRS.bit.TRS0=1;   //启动发送	
+    for(i=0;i<0xffff;i++) {}
+    ECanaRegs.CANTA.bit.TA0=1;
+    ECanaRegs.CANTRS.bit.TRS0=0;
+	for(i=0;i<0xffff;i++) {}
+    
+
+    ECanaMboxes.MBOX0.MDRL.all = ((Uint32)HighWord_272_Send<<16)+(Uint32)LowWord_272_Send;
+	ECanaMboxes.MBOX0.MDRH.all = 0x444d3243;
+	ECanaRegs.CANTRS.bit.TRS0=1;   //启动发送	
+	for(i=0;i<0xffff;i++) {}
+    ECanaRegs.CANTA.bit.TA0=1;
+    ECanaRegs.CANTRS.bit.TRS0=0;
+	for(i=0;i<0xffff;i++) {}
+ 
+    ECanaMboxes.MBOX0.MDRL.all = ((Uint32)HighWord_273_Send<<16)+(Uint32)LowWord_273_Send;
+	ECanaMboxes.MBOX0.MDRH.all = 0x444d3343;
+	ECanaRegs.CANTRS.bit.TRS0=1;   //启动发送
+	for(i=0;i<0xffff;i++) {}
+    ECanaRegs.CANTA.bit.TA0=1;
+    ECanaRegs.CANTRS.bit.TRS0=0;
+	for(i=0;i<0xffff;i++) {}
+
+    ECanaMboxes.MBOX0.MDRL.all = ((Uint32)HighWord_Receive_Send<<16)+(Uint32)LowWord_Receive_Send;
+    ECanaMboxes.MBOX0.MDRH.all = 0x444d3443;
+	ECanaRegs.CANTRS.bit.TRS0=1;   //舣发送	
+    for(i=0;i<0xffff;i++) {}
+    ECanaRegs.CANTA.bit.TA0=1;
+    ECanaRegs.CANTRS.bit.TRS0=0;
+	
+	Count_Can_Send++;
+}
+
+///////////////控制器发送到试验器///////////////////////////////////
+void ControllerTester_Can_Send(void)
+{   Uint32 i=0;
+    rambase3=(Uint16 *)RAMBASE3;
+    while(1)
+    { Data3_Read();
+      ECanaMboxes.MBOX1.MDRL.all=((Uint32)rambase3<<8)+(Uint32)tmp&0xff;
+	  ECanaMboxes.MBOX1.MDRH.all=0x46533030;
+	  ECanaRegs.CANTRS.bit.TRS1=1;   	
+	  for(i=0;i<0xffff;i++) {}
+      ECanaRegs.CANTA.bit.TA1=1;
+      ECanaRegs.CANTRS.bit.TRS1=0;
+	  for(i=0;i<5000;i++){}
+	}
+}
+
+/////////////通过总线向外部存储器写硬件版本号////////////////////
+void Data1_Save(void)
+{  
+   *rambase1=tmp&0xff; 	
+   rambase1++;    
+}
+
+/////////////通过总线向外部存储器写总故障次数 ////////////////////
+void Data2_Save(void)
+{  
+   *rambase2=tmp&0xff; 	
+   rambase2++;    
+}
+
+/////////////通过总线向外部存储器写状态信息码////////////////////
+void Data3_Save(void)
+{  
+   *rambase3=tmp&0xff; 	
+   rambase3++;    
+}
+
+/////////////通过总线读取上次故障次数////////////////////
+void Data1_Read(void)
+{ 
+   tmp1=(*rambase1)&0xff;       //将数据总线上的数据读到变量tmp1中
+   rambase1++;   
+}
+
+/////////////通过总线读取上次故障次数////////////////////
+void Data2_Read(void)
+{ 
+   tmp1=(*rambase2)&0xff;       //将数据总线上的数据读到变量tmp1中
+   rambase2++;   
+}
+
+/////////////通过总线读取上次状态信息码结束处////////////////////
+void Data3_Read(void)
+{ 
+   tmp1=(*rambase3)&0xff;       //将数据总线上的数据读到变量tmp1中 
+   rambase3++; 
+}
+
+///////////////读取硬件版本号///////////////////////////////
+void VersionNumber_Hardware_Get(void)
+{  Uint16 Version_Number1;         /*硬件版本号第1位变量*/
+   Uint16 Version_Number2;
+   Uint16 Version_Number3;
+   Uint16 Version_Number4;
+   Uint16 Version_Number5; 
+
+   rambase1=(Uint16 *)RAMBASE1;    
+   Data1_Read();
+   Version_Number1=(Uint16)tmp1;
+   Data1_Read();
+   Version_Number2=(Uint16)tmp1;   
+   Data1_Read();
+   Version_Number3=(Uint16)tmp1;
+   Data1_Read();
+   Version_Number4=(Uint16)tmp1;
+   Data1_Read();
+   Version_Number5=(Uint16)tmp1;
+   
+   HighWord_306_Send=((Version_Number1&0x7)<<13)+0xc9;
+   LowWord_307_Send=((Version_Number2&0x1f)<<11)+0xc7;
+   HighWord_307_Send=((Version_Number4&0x7f)<<9)+((Version_Number3&0x7f)<<2)+((Version_Number2&0x60)>>5);
+   LowWord_310_Send=(LowWord_310_Send&0x7fff)+((Version_Number5&0x1f)<<11);
+   HighWord_310_Send=(HighWord_310_Send&0xfffc)+((Version_Number5&0x60)>>5);
+      
+   rambase1=(Uint16 *)RAMBASE1;
+}
+
+
+/////////////////软件版本号发送/////////////////////////////////
+void VersionNumber_Software_Send(void)
+{  
+   Uint32 i=0;
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;
+   *rambase6=LowWord_300_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;      
+   *rambase6=HighWord_300_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+
+   asm(" RPT #7 || NOP");
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;      
+   *rambase6=LowWord_301_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;      
+   *rambase6=HighWord_301_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+
+   asm(" RPT #7 || NOP");
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;     
+   *rambase6=LowWord_302_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;      
+   *rambase6=HighWord_302_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+   asm(" RPT #7 || NOP");
+
+   if(Flag_Controller_Judge==1)
+   { HighWord_303_Send=0xc9; 
+   }
+   else
+   { HighWord_303_Send=0xc5; 
+   }
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;      
+   *rambase6=LowWord_303_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;
+   *rambase6=HighWord_303_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+   asm(" RPT #7 || NOP");
+}
+
+/////////////////硬件版本号发送/////////////////////////////////
+void VersionNumber_Hardware_Send(void)
+{  Uint32 i=0;    
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;
+   *rambase6=LowWord_304_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;    
+   *rambase6=HighWord_304_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+
+   asm(" RPT #7 || NOP");
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;     
+   *rambase6=LowWord_305_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;    
+   *rambase6=HighWord_305_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+
+   asm(" RPT #7 || NOP");
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;   
+   *rambase6=LowWord_306_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;   
+   *rambase6=HighWord_306_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+
+   asm(" RPT #7 || NOP");
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;  
+   *rambase6=LowWord_307_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;     
+   *rambase6=HighWord_307_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+   asm(" RPT #7 || NOP");
+
+   if(Flag_Controller_Judge==1)
+   { HighWord_310_Send=0xc9; 
+   }
+   else
+   { HighWord_310_Send=0xc5; 
+   } 
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;  
+   *rambase6=LowWord_310_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;     
+   *rambase6=HighWord_310_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+   asm(" RPT #7 || NOP");
+}
+
+//////////////清除存储器数据/////////////////////////////
+void Store_Data_Clear(void)
+{
+  rambase3=(Uint16 *)RAMBASE3;
+  rambase6=(Uint16 *)RAMBASE6;
+  for(;rambase3<rambase6;rambase3++)
+  { *rambase3=0xff;
+  }   
+}
+
+//////////////信号采集///////////////////////////////
+void ADC_sample(void)
+{  
+   InitAdc(); 
+   EvbRegs.T4CON.bit.TENABLE=1;
+   while(1)
+   {if(n==8)
+	break;
+   } 
+   n=0;	 
+   if(Flag_ADCadjust_Finish==1) //上电自检完后修正采集电压
+   { a3=(int)(gain*a3-offest);
+   }		
+   EvbRegs.T4CON.bit.TENABLE=0;
+}  
+
+////////////ADC校正////////////////////////////////////
+void ADC_adjust(void)
+{    
+   ///////采集ADCINB6(1.25V)/////////
+   channel=0xeded; 
+   ADC_sample();
+   a1=a3;      
+   ///////采集ADCINB7(2.5V)///////////   
+   channel=0xfdfd; 
+   ADC_sample();  
+   a2=a3;       
+   //////////扑阍鲆婧推?////////////////
+   gain=(float)(HIGH_COUNT-LOW_COUNT)/(a2-a1); 
+   offest=a1*gain-1733.0;
+   Flag_ADCadjust_Finish=1;     //ADC校正完毕
+}
+
+///////////////软件代码检查////////////////////////////////
+void CPU_BIT(void)
+{  Uint32 i=0;
+   EvaRegs.T1CON.bit.TENABLE=0;
+   EvaTimer1InterruptCount=0;
+  /////////检查存储器读写是否正常//////////////////////  
+   tmp=0x11;
+   *rambase1=tmp;
+   for(i=0;i<30000;i++){}
+   tmp1=*rambase1;
+   rambase1=(Uint16 *)RAMBASE1; 
+   if(tmp1!=tmp)  //存储器故障
+   { //GpioDataRegs.GPBDAT.bit.GPIOB15=0;  //CPU发出故障信号  
+     Count_System_Error++;   
+   }
+   /////////检查定时器是否正常//////////////////////////
+   EvaRegs.T1CON.bit.TENABLE=1;   //打开定时器
+   EvaRegs.T2CON.bit.TENABLE=1;
+   while(1)         
+   { if(EvaTimer2InterruptCount>=10)  //延时1S
+     { EvaRegs.T1CON.bit.TENABLE=0;   //关闭定时器
+       EvaRegs.T2CON.bit.TENABLE=0;
+
+       if(EvaTimer1InterruptCount!=10)  //定时器故障
+       { 
+         GpioDataRegs.GPBDAT.bit.GPIOB15=0;  //CPU发出故障信号
+         Count_System_Error++; 
+       } 
+	   EvaTimer1InterruptCount=0;
+       EvaTimer2InterruptCount=0;
+
+	   break;
+     }             	 
+   }
+   ////////////////上报控制器故障/////////////////////////////
+   if(GpioDataRegs.GPBDAT.bit.GPIOB15==0)
+   { if(Flag_Controller_Judge==1)  
+     { HighWord_272_Send=HighWord_272_Send|0x4;	//右控制器故障
+	 }
+     else
+	 { HighWord_272_Send=HighWord_272_Send|0x2;  //左控制器故障
+	 }
+   }
+}
+
+////////////////短路传感器检查///////////////////////
+void Sensor_Short_BIT(void)
+{  Uint32 i=0;
+
+   for(j=0;j<10;j++)
+   { if(j<=0)
+     { GpioDataRegs.GPBDAT.all=GpioDataRegs.GPBDAT.all&0xffe1|0xc; //左机翼1号段
+	 }
+	 else
+	 { GpioDataRegs.GPBDAT.all=GpioDataRegs.GPBDAT.all+0x2;
+	 }
+     for(i=0;i<0x5000;i++) {} 	 
+     if(GpioDataRegs.GPBDAT.bit.GPIOB5==1)
+     { Short_BIT[j]++;
+     }
+     if(Short_BIT[j]==2)
+     { Short_BIT[j]=0;
+	   if(j<=4)
+	   { HighWord_272_Send=HighWord_272_Send|0x1;    //左1/2配电盒故障
+	   }
+	   else
+	   { LowWord_272_Send=LowWord_272_Send|0x8000;  //右1/2配电盒故障
+	   }
+	   Count_System_Error++; 
+	   GpioDataRegs.GPBDAT.bit.GPIOB15=0;  //CPU发出故障信号
+     }
+   }
+}
+
+/////////////上电自检//////////////////////////////////
+void PowerOn_BIT(void)
+{  Uint32 i=0;
+   Flag_PowerOnBIT_Finish=1;
+   LowWord_273_Send=LowWord_273_Send|0x2000;     //正在自检
+   CPU_BIT();
+
+   //////////检查短路传感器是否正常///////////////
+   GpioDataRegs.GPFDAT.bit.GPIOF9=0;  //短路传感器自检
+   GpioDataRegs.GPBDAT.bit.GPIOB0=0;  //打开短路测试通道选择
+   for(i=0;i<0x124f80;i++){}
+   for(i=0;i<0x124f80;i++){}
+   for(i=0;i<0x124f80;i++){}
+   Sensor_Short_BIT();
+   for(i=0;i<0x124f80;i++){}
+   for(i=0;i<0x124f80;i++){}
+   for(i=0;i<0x124f80;i++){}
+   Sensor_Short_BIT();
+   GpioDataRegs.GPBDAT.bit.GPIOB0=1;
+   GpioDataRegs.GPFDAT.bit.GPIOF9=1;  //关闭自检电源
+
+   if(GpioDataRegs.GPBDAT.bit.GPIOB15==0)
+   { Flag_PowerOnBIT_OK=1;
+   }
+   LowWord_273_Send=LowWord_273_Send&0xdfff;   // 自检完成 
+   Flag_PowerOnBIT_Finish=0;      
+}
+
+/////////////429发送////////////////////////////////
+void E429_Send(void)
+{  Uint32 i=0;
+   if(((Flag_PowerOnBIT_Finish==0)&&(Flag_GroudBIT_Finish==0))
+      ||(((LowWord_271_Send&0xe000)>>13)>=0x0001)
+      ||((HighWord_271_Send&0x1fff)>=0x0001))
+   { 
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;   
+     *rambase6=LowWord_271_Send;
+     for(i=0;i<5;i++){} 
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;   
+     *rambase6=HighWord_271_Send;
+     for(i=0;i<5;i++){}
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+   }
+
+   if(((Flag_PowerOnBIT_Finish==0)&&(Flag_GroudBIT_Finish==0))
+      ||(((LowWord_272_Send&0x8000)>>15)>=0x0001)
+      ||((HighWord_272_Send&0x0007)>=0x0001)) 
+   { 
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;  
+     *rambase6=LowWord_272_Send;
+     for(i=0;i<5;i++){} 
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;   
+     *rambase6=HighWord_272_Send;
+     for(i=0;i<5;i++){}
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+   }
+
+   if(Flag_PowerOnBIT_Finish==0)  //上电自检时不上报
+   { 
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;   
+     *rambase6=LowWord_273_Send;
+     for(i=0;i<5;i++){} 
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;   
+     *rambase6=HighWord_273_Send;
+     for(i=0;i<5;i++){}
+     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+   }
+
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfff7;   
+   *rambase6=LowWord_Receive_Send;
+   for(i=0;i<5;i++){} 
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x8;
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xffef;   
+   *rambase6=HighWord_Receive_Send;
+   for(i=0;i<5;i++){}
+   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x10;
+}
+
+/////////////////加热时序//////////////////////////////////
+void Heat_Time_Control(void)
+{  
+   if(Flag_4abcHeat_OK==0)  
+   { 
+     if((0<Count_Control_Heat)&&(Count_Control_Heat<=(Time1_Heat-2)))                //加热4区            
+     { GpioDataRegs.GPADAT.bit.GPIOA11=0;
+       GpioDataRegs.GPADAT.bit.GPIOA12=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA13=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA14=1;           
+     }   
+	if((Count_Control_Heat>(Time1_Heat-2))&&(Count_Control_Heat<=(Time1_Heat+2)))  
+	 { Count_abc_Control=0;
+       GpioDataRegs.GPADAT.bit.GPIOA11=0;
+       GpioDataRegs.GPADAT.bit.GPIOA12=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA13=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA14=0; 
+	   Flag_1abcHeat_OK=0; 
+	 } 
+   }
+   if(Flag_3abcHeat_OK==0)
+   { 
+    if((Count_Control_Heat>(Time1_Heat+2))&&(Count_Control_Heat<=(2*Time1_Heat-2)))  //加热3区                     
+     { GpioDataRegs.GPADAT.bit.GPIOA11=0;
+       GpioDataRegs.GPADAT.bit.GPIOA12=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA14=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA13=1;  
+     }
+     if((Count_Control_Heat>(2*Time1_Heat-2))&&(Count_Control_Heat<=(2*Time1_Heat+2)))
+	 { Count_abc_Control=0;
+       GpioDataRegs.GPADAT.bit.GPIOA11=0;
+       GpioDataRegs.GPADAT.bit.GPIOA12=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA13=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA14=0; 
+	   Flag_4abcHeat_OK=0;  
+	 }
+   }
+   if(Flag_2abcHeat_OK==0)
+   { 
+    if((Count_Control_Heat>(2*Time1_Heat+2))&&(Count_Control_Heat<=(3*Time1_Heat-2))) //加热2区                    
+     { GpioDataRegs.GPADAT.bit.GPIOA11=0;
+       GpioDataRegs.GPADAT.bit.GPIOA13=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA14=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA12=1;   
+     }
+	 if((Count_Control_Heat>(3*Time1_Heat-2))&&(Count_Control_Heat<=(3*Time1_Heat+2)))
+	 { Count_abc_Control=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA11=0;
+       GpioDataRegs.GPADAT.bit.GPIOA12=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA13=0;
+	   GpioDataRegs.GPADAT.bit.GPIOA14=0; 
+	   Flag_3abcHeat_OK=0;
+	 }
+   }
+   if(Flag_1abcHeat_OK==0)
+   { 
+    if((Count_Control_Heat>(3*Time1_Heat+2))&&(Count_Control_Heat<=(4*Time1_Heat-2))) //加热1区                 
+    { GpioDataRegs.GPADAT.bit.GPIOA12=0;
+      GpioDataRegs.GPADAT.bit.GPIOA13=0;
+	  GpioDataRegs.GPADAT.bit.GPIOA14=0;
+	  GpioDataRegs.GPADAT.bit.GPIOA11=1; 
+	  Flag_2abcHeat_OK=0;   
+    }
+   }
+   if(Flag_GroudBIT_Finish==1)
+   { if(Count_Control_Heat>(4*Time1_Heat-2))
+     { Count_Control_Heat=0;
+       GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200; //关闭所有加热
+       if(Flag_Controller_Judge==0)
+       { LowWord_273_Send=LowWord_273_Send&0xdfff; //左控制器自检完成
+	     Controller_Can_Send();    //左右CAN交流
+	     Flag_LeftGroudBIT_Finish=1;
+	     Flag_GroudBIT_Start=0;	
+	     Flag_GroudBIT_Finish=0; 
+       }
+       else
+       { LowWord_273_Send=LowWord_273_Send&0xdfff; //右控制器自检完成
+	     Flag_GroudBIT_Finish=0;       //一次地面维护完成
+		 Flag_GroudBIT_Start=0;
+		 Flag_LeftGroudBIT_Finish=0;
+       } 
+       Flag_Ground_Heat=0;	   
+     }     
+   }
+   else
+   { if(Flag_Temperature1_Bad==0)    
+	 { if((Flag_1abcHeat_OK==0)&&(Flag_2abcHeat_OK==0)&&(Flag_3abcHeat_OK==0)&&(Flag_4abcHeat_OK==0))
+	   { if((Count_Control_Heat>(4*Time1_Heat-2))&&(Count_Control_Heat<=6*Time1_Heat))                      
+	     { Count_abc_Control=0;
+	       GpioDataRegs.GPADAT.bit.GPIOA11=0;
+	       GpioDataRegs.GPADAT.bit.GPIOA12=0;
+		   GpioDataRegs.GPADAT.bit.GPIOA13=0;
+		   GpioDataRegs.GPADAT.bit.GPIOA14=0; 		     
+	     }
+		 if(Count_Control_Heat>6*Time1_Heat)
+	     { Count_Control_Heat=0;	
+	       Flag_Temperature1_Bad=Flag_Temperature2_Bad;
+	       Time1_Heat=Time2_Heat;  
+		 }
+	   }
+	   else
+	   { Count_Control_Heat=0;
+		 Flag_Temperature1_Bad=Flag_Temperature2_Bad;
+	     Time1_Heat=Time2_Heat; 
+	   }
+	 }
+	 else           //严酷环境下时序
+	 { if(Count_Control_Heat>(4*Time1_Heat-2))
+	   { Count_Control_Heat=0;
+		 Flag_Temperature1_Bad=Flag_Temperature2_Bad;
+	     Time1_Heat=Time2_Heat; 		 
+	   }
+	 }	  
+   }  	
+    //////////////缺相监控/////////////////////////////////////////////  
+	if((GpioDataRegs.GPADAT.bit.GPIOA15==1)&&(Count_5d_Control>=t1)) 
+	{  Count_5d_Control=0;
+	   QXJC();	
+	}	
+	if((GpioDataRegs.GPADAT.bit.GPIOA14==1)&&(Count_abc_Control>=t1)) 
+	{  Count_abc_Control=0;
+	   QXJC();	
+	}
+	if((GpioDataRegs.GPADAT.bit.GPIOA13==1)&&(Count_abc_Control>=t1)) 
+	{  Count_abc_Control=0;
+	   QXJC();	
+	}
+	if((GpioDataRegs.GPADAT.bit.GPIOA12==1)&&(Count_abc_Control>=t1)) 
+	{  Count_abc_Control=0;
+	   QXJC();	
+	}
+	if((GpioDataRegs.GPADAT.bit.GPIOA11==1)&&(Count_abc_Control>=t1)) 
+	{  Count_abc_Control=0;
+	   QXJC();	
+	}
+}
+
+////////////////地面维护BIT////////////////////////////
+void Ground_BIT(void)
+{  
+   count1=0; 
+   Count_CPLD_Time=0;
+   Count_429_Send=0;
+
+   Flag_GroudBIT_Finish=1;            /*正在进行地面维护*/  
+   HighWord_271_Send=HighWord_271_Send|0x8000;    //维护模式
+   HighWord_272_Send=HighWord_272_Send|0x8;    //维护模式
+   LowWord_273_Send=LowWord_273_Send|0x6000;     //正在测试及自检 
+   if(Flag_Ground_Heat==0)
+   { CPU_BIT();
+   }
+   EvaRegs.T1CON.bit.TENABLE=1; 
+   Time1_Heat=8;
+   t1=4;
+
+   ////////////////默认左控制器先工作///////////////////////////////////////
+   while(1)
+   { if((GpioDataRegs.GPFDAT.bit.GPIOF12==1)&&(Flag_Controller_Judge==0)) 
+     { LowWord_272_Send=LowWord_272_Send|0x6000; //左控制器正在自检
+       Flag_Ground_Heat=1;
+       GpioDataRegs.GPADAT.bit.GPIOA9=0;   //打开安全开关
+       GpioDataRegs.GPADAT.bit.GPIOA15=1;   //热刀加热 
+       Heat_Time_Control();  
+       if(Flag_GroudBIT_Finish==0)
+       { Flag_GroudBIT_Start=0;
+         EvaRegs.T1CON.bit.TENABLE=0;
+	     E429_Send(); //429上报自检信息 
+         EvaRegs.T1CON.bit.TENABLE=1;
+         break;
+       } 
+     }
+   }
+   //Controller_Can_Send(); 
+
+   /////////////////右控制器等待左控制器完成/////////////////////////////////  
+   /*while(1)
+   { if(Flag_LeftGroudBIT_Finish==1)
+     { if((GpioDataRegs.GPFDAT.bit.GPIOF12==1)&&(Flag_Controller_Judge==1)) 
+       {  LowWord_272_Send=LowWord_272_Send|0x2000;   ///右控制器正在自检
+          Flag_Ground_Heat=1;
+          GpioDataRegs.GPADAT.bit.GPIOA9=0;   //打开安全开关
+          GpioDataRegs.GPADAT.bit.GPIOA15=1;   //热刀加热        
+          Heat_Time_Control(); 
+		  if(Flag_GroudBIT_Finish==0)
+		  {break;
+		  }
+       }  
+	 }
+   }*/
+  
+   if(GpioDataRegs.GPBDAT.bit.GPIOB15==0)
+   { Flag_GroudBIT_OK=1;
+     HighWord_273_Send=HighWord_273_Send&0xfffe;   //地面维护失败
+   }
+   LowWord_273_Send=LowWord_273_Send&0x9fff|0x8000;     //测试及自检完成
+}
+
+///////////////加热控制////////////////////////////////////
+void System_Heat(void)
+{  if(Flag_Controller_Replace==0)
+   { GpioDataRegs.GPADAT.bit.GPIOA9=0;   //打开安全开关 
+	 HighWord_271_Send=HighWord_271_Send|0x2000; //尾翼防除冰系统开
+	  ///////延时2s////////////////////////////
+     if(Flag_Work_End==0)
+     { EvaRegs.T2CON.bit.TENABLE=1;
+       while(1)
+       { if(EvaTimer2InterruptCount>=20)
+         {EvaTimer2InterruptCount=0;	      
+	      break;
+		 }
+		 Flag_Work_End=1;
+	   } 
+	   EvaRegs.T2CON.bit.TENABLE=0;
+     }      
+     GpioDataRegs.GPADAT.bit.GPIOA15=1;   //热刀加热
+	 LowWord_272_Send=LowWord_272_Send|0x2000;   //正在进行加热
+   }
+   Heat_Time_Control();
+}
+
+//////////////左平尾加热电流判断是否开路///////////////////
+void ZDLJC(void)
+{ if((GpioDataRegs.GPADAT.all&0xf800)==0x8000)   //仅有热刀加热
+  { if(Current<7.0)
+    { Count_Left1_dx++;
+	}
+    if(Count_Left1_dx>=2)
+    { Count_Left1_dx=0;
+      Count_System_Error++; 
+	  HighWord_271_Send=HighWord_271_Send|0x1e00;         //左全部断路
+	  Controller_Can_Send();    //左右CAN交流	  
+ 	  GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200;  //关闭所有加热
+      GpioDataRegs.GPBDAT.bit.GPIOB15=0;    //本控制器故障
+	}
+  }
+  if((GpioDataRegs.GPADAT.all&0xe800)>=0x800) 
+  { if(Current<40.0)
+    { Count_Left2_dx++;
+	}  
+    if(Count_Left2_dx>=2)
+    { Count_Left2_dx=0;
+	  if(GpioDataRegs.GPADAT.bit.GPIOA14==1)
+	  { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x200;         //左4段断路
+	  }
+	  if(GpioDataRegs.GPADAT.bit.GPIOA13==1)
+	  { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x400;         //左第3段断路
+	  }
+	  if(GpioDataRegs.GPADAT.bit.GPIOA12==1)
+	  { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x800;         //左第2段断路
+	  }
+	  if(GpioDataRegs.GPADAT.bit.GPIOA11==1)
+	  { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x1000;         //左第1段断路
+	  }
+	  Controller_Can_Send();    //左右CAN交流
+	  GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200;  //关闭所有加热     
+	  GpioDataRegs.GPBDAT.bit.GPIOB15=0;    //本控制器故障
+    }
+  } 
+}
+
+//////////////右平尾加热电流判断是否开路///////////////////
+void YDLJC(void)
+{ if((GpioDataRegs.GPADAT.all&0xf800)==0x8000)   //仅有热刀加热
+  { if(Current<7.0)
+    { Count_Right1_dx++;
+	}
+    if(Count_Right1_dx>=2)
+    { Count_Right1_dx=0;
+      Count_System_Error++; 
+	  HighWord_271_Send=HighWord_271_Send|0x1e0;         //右全部断路
+	  Controller_Can_Send();    //左右CAN交流
+ 	  GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200;  //关闭所有加热
+	  GpioDataRegs.GPBDAT.bit.GPIOB15=0;    //本控制器故障      
+	}
+  }
+  if((GpioDataRegs.GPADAT.all&0xe800)>=0x800) 
+  { if(Current<40.0)
+    { Count_Right2_dx++;
+	}
+    if(Count_Right2_dx>=2)
+    { Count_Right2_dx=0;
+	  if(GpioDataRegs.GPADAT.bit.GPIOA14==1)
+      { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x20;         //右第4段断路
+	  }
+	  if(GpioDataRegs.GPADAT.bit.GPIOA13==1)
+  	  { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x40;         //右第3段断路
+	  }
+	  if(GpioDataRegs.GPADAT.bit.GPIOA12==1)
+	  { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x80;         //右第2段断路
+	  }
+	  if(GpioDataRegs.GPADAT.bit.GPIOA11==1)
+	  { Count_System_Error++; 
+	    HighWord_271_Send=HighWord_271_Send|0x100;         //右第1段断路	 
+	  }
+      Controller_Can_Send();    //左右CAN交流	  
+	  GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200;  //关闭所有加热	
+      GpioDataRegs.GPBDAT.bit.GPIOB15=0;    //本控制器故障   
+    }
+  }
+}
+
+///////////////////左平尾开路监控//////////////////////////////
+void ZKLJC(void)
+{  
+   channel=0x0d0d;   //ADCINA0采集左t
+   ADC_sample();
+   Current=(float)a3*3.0/4095;
+   Current= Current*50/2.5;   //采集电压转换傻缌?
+   ZDLJC();
+    
+   channel=0x1d1d;   //ADCINA1采集左s
+   ADC_sample();
+   Current=(float)a3*3.0/4095;
+   Current= Current*50/2.5;
+   ZDLJC();
+     
+   channel=0x2d2d;   //ADCINA2采集左r
+   ADC_sample();
+   Current=(float)a3*3.0/4095;
+   Current= Current*50/2.5;
+   ZDLJC();    
+}
+
+///////////////////右平尾开路监控//////////////////////////////
+void YKLJC(void)
+{ 	 
+   channel=0x3d3d;   //ADCINA3采集右t
+   ADC_sample();
+   Current=(float)a3*3.0/4095;
+   Current= Current*50/2.5;
+   YDLJC();
+
+   channel=0x4d4d;   //ADCINA4采集右s
+   ADC_sample();
+   Current=(float)a3*3.0/4095;
+   Current= Current*50/2.5; 
+   YDLJC();
+
+   channel=0x5d5d;   //ADCINA5采集右r
+   ADC_sample();
+   Current=(float)a3*3.0/4095;
+   Current= Current*50/2.5; 
+   YDLJC();   
+}
+
+///////////////左/右开路缺相监控////////////////////////////////
+void QXJC(void)
+{  Uint32 i=0;
+   for(i=0;i<0xfffff;i++){}
+   ZKLJC();
+   YKLJC();
+   /////////////////////////////////////////////////////////////
+   if(((HighWord_271_Send&0x1000)==0x1000)&&(Flag_Left1_OK==1))      
+   { 
+     HighWord_272_Send=HighWord_272_Send|0x1;    //左配电盒故障      
+   }
+   if(((HighWord_271_Send&0x800)==0x800)&&(Flag_Left2_OK==1))
+   { 
+     HighWord_272_Send=HighWord_272_Send|0x1;    //左配电盒故障     
+   } 
+   if(((HighWord_271_Send&0x400)==0x400)&&(Flag_Left3_OK==1))
+   { 
+     HighWord_272_Send=HighWord_272_Send|0x1;    //左配电盒故障     
+   } 
+   if(((HighWord_271_Send&0x200)==0x200)&&(Flag_Left4_OK==1))
+   { 
+     HighWord_272_Send=HighWord_272_Send|0x1;    //左配电盒故障     
+   } 
+   //////////////////////////////////////////////////////////////
+   if(((HighWord_271_Send&0x100)==0x100)&&(Flag_Right1_OK==1))
+   { 
+     LowWord_272_Send=LowWord_272_Send|0x8000;  //右配电盒故障    
+   }
+   if(((HighWord_271_Send&0x80)==0x80)&&(Flag_Right2_OK==1))
+   { 
+    LowWord_272_Send=LowWord_272_Send|0x8000;  //右配电盒故障    
+   } 
+   if(((HighWord_271_Send&0x40)==0x40)&&(Flag_Right3_OK==1))
+   { 
+    LowWord_272_Send=LowWord_272_Send|0x8000;  //右配电盒故障  
+   } 
+   if(((HighWord_271_Send&0x20)==0x20)&&(Flag_Right4_OK==1))
+   { 
+     LowWord_272_Send=LowWord_272_Send|0x8000;  //右配电盒故障     
+   } 
+   //////////////////////////////////////////////////////////
+   if(((LowWord_272_Send&0x8000)==0x8000)||((HighWord_272_Send&0x1)==0x1))
+   { 
+     HighWord_271_Send= HighWord_271_Send|0x4000;   //防除冰系统失效 
+   } 
+}
+
+///////////////////定时器1中断//////////////////////////////////
+
+interrupt void eva_timer1_isr(void)
+{  
+  DINT;
+  if(PieCtrl.PIEACK.bit.ACK2==1)
+  { PieCtrl.PIEACK.bit.ACK2=1;
+   
+   ////////////////////////////////////////////////
+   if(Flag_PowerOnBIT_Finish==1)    //上电自检时
+   { EvaTimer1InterruptCount++;
+   } 
+   if(Flag_GroudBIT_Finish==1)  //地面自检时
+   { if(Flag_Ground_Heat==1)
+     { Count_Control_Heat++;
+	   Count_5d_Control++;
+	   Count_abc_Control++;	   
+     }
+	 else
+	 { EvaTimer1InterruptCount++;
+	 }
+   }
+   if((Flag_PowerOnBIT_Finish==0)&&(Flag_GroudBIT_Finish==0))//周期BIT时
+   { GpioDataRegs.GPADAT.bit.GPIOA8=~GpioDataRegs.GPADAT.bit.GPIOA8;
+     count1++; 
+     Count_CPLD_Time++;
+     Count_429_Send++;
+	 if(Count_429_Send>=18)
+	 { Count_429_Send=0;
+	   E429_Send();  //429总线发送 
+	 }
+  
+     ///////////////////////////////////////////////////    
+     if(GpioDataRegs.GPFDAT.bit.GPIOF12==1) //除冰启动
+     { if(Flag_Deice_Start==0)
+       { m++;
+		 if(m==2)
+		 { Flag_Deice_Start=1;
+		   Count_Deice_Startup=1;
+		 }
+       }
+	   if(Flag_Deice_Start==1)
+	   {  
+		 if(Flag_Error_Replace==1)
+		 { 	   		  
+		   if(GpioDataRegs.GPADAT.bit.GPIOA15==1)		   
+		   { Flag_Error_Replace=0;
+		     Count_5d_Control=0;
+		     Count_abc_Control=0;
+
+		     if(Flag_4abcHeat_OK==1)   //4区故障另一控制器从3区加热
+		     { Count_Control_Heat=Time1_Heat+2;
+		     }
+		     if(Flag_3abcHeat_OK==1)   //3区故障另一控制器从2区加热
+		     { Count_Control_Heat=2*Time1_Heat+2;
+		     }
+		     if(Flag_2abcHeat_OK==1)   //2区故障另一控制器从1区加热
+		     { Count_Control_Heat=3*Time1_Heat+2;
+		     } 
+		     if(Flag_1abcHeat_OK==1)   //一般环境另一控制器加热休息两个时段
+		     { if(Flag_Temperature1_Bad==0) 
+		       {Count_Control_Heat=4*Time1_Heat-2;
+			   }
+			   else
+			   {  Count_Control_Heat=0;  //环境恶劣另一控制器从4区加热
+			   }
+		     }
+			 if((Flag_4abcHeat_OK==0)&&(Flag_3abcHeat_OK==0)&&(Flag_2abcHeat_OK==0)&&(Flag_1abcHeat_OK==0))
+			 { Count_Control_Heat=0;
+			 }
+			}
+		 }		   		   
+		 if(Flag_Controller_Replace==1)
+		 { if(Count_Deice_Startup==1)
+		   { Count_Deice_Startup=2;
+		   }
+		   else
+		   { Count_Deice_Startup=1;
+		   }
+		   Flag_Controller_Replace=0;
+	       GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200;  //关闭所有加热
+		 }
+         if(GpioDataRegs.GPADAT.bit.GPIOA15==1)
+         { Count_Control_Heat++;
+		   Count_5d_Control++;
+		   if((GpioDataRegs.GPADAT.all&0x7800)>=0x800)      //任一区加热时
+		   {Count_abc_Control++;
+		   }
+		 }
+	   }
+	 }
+     else
+	 { Flag_Work_End=0;
+	   GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200; //关闭所有加热
+	   HighWord_271_Send=HighWord_271_Send&0xdfff; //尾翼防除冰系统关闭
+	   LowWord_272_Send=LowWord_272_Send&0xdfff;  //没有进行加热工作
+	   Flag_Temperature1_Bad=Flag_Temperature2_Bad;
+       Time1_Heat=Time2_Heat;
+	   if(Flag_Deice_Start==0)
+	   { m=0;
+	   }
+	   else
+	   { Flag_Controller_Replace=1;   //准备切换
+	     Count_Control_Heat=0;
+	     Count_5d_Control=0;
+	     Count_abc_Control=0;
+	     if(Flag_Error_Replace==1)
+		 { Flag_Deice_Start=0;
+		   Flag_Controller_Replace=0;
+		   Flag_Error_Replace=0;
+		   Count_Deice_Startup=0;
+		   m=0;
+		 }
+	   }
+	 }	 	 
+   }
+   EvaRegs.EVAIMRA.bit.T1PINT = 1;
+   EvaRegs.EVAIFRA.bit.T1PINT = 1;
+  }
+  EINT;
+
+}
+
+///////////////////定时器2中断//////////////////////////////////
+
+interrupt void eva_timer2_isr(void)
+{  
+  DINT;
+  if(PieCtrl.PIEACK.bit.ACK3==1)
+  { PieCtrl.PIEACK.bit.ACK3=1;
+
+   EvaTimer2InterruptCount++;
+
+   EvaRegs.EVAIMRB.bit.T2PINT = 1;
+   EvaRegs.EVAIFRB.bit.T2PINT = 1;
+  }
+  EINT;
+
+}
+
+///////////////////ADC中断//////////////////////////////////
+interrupt void ad_isr(void)
+{ Uint16 Result[16];          /*保存AD转换的结果数组*/
+  DINT;
+  if(PieCtrl.PIEACK.bit.ACK1==1)
+  { PieCtrl.PIEACK.bit.ACK1=1;
+    
+    Result[0]=AdcRegs.RESULT0>>4;
+    Result[1]=AdcRegs.RESULT1>>4;
+    Result[2]=AdcRegs.RESULT2>>4;
+    Result[3]=AdcRegs.RESULT3>>4;
+    Result[4]=AdcRegs.RESULT4>>4;
+    Result[5]=AdcRegs.RESULT5>>4;
+    Result[6]=AdcRegs.RESULT6>>4;
+    Result[7]=AdcRegs.RESULT7>>4;
+    Result[8]=AdcRegs.RESULT8>>4;
+    Result[9]=AdcRegs.RESULT9>>4;
+    Result[10]=AdcRegs.RESULT10>>4;
+    Result[11]=AdcRegs.RESULT11>>4;
+    Result[12]=AdcRegs.RESULT12>>4;
+    Result[13]=AdcRegs.RESULT13>>4;
+    Result[14]=AdcRegs.RESULT14>>4;
+    Result[15]=AdcRegs.RESULT15>>4;
+   
+	a3=0;
+	for(n=0;n<8;n++)  //取8个有效数据求平均
+	{ a3=a3+Result[2*n+1];
+	}
+    a3=a3/8;
+
+    AdcRegs.ADC_ST_FLAG.bit.INT_SEQ1_CLR=1;
+    AdcRegs.ADC_ST_FLAG.bit.INT_SEQ2_CLR=1;
+  }	
+  EINT;
+	
+}
+
+///////////////////CAN中断邮招畔?//////////////////////////////
+interrupt void ECAN0_ISR(void)
+{ 
+  DINT;
+  if(PieCtrl.PIEACK.bit.ACK9==1)
+  { PieCtrl.PIEACK.bit.ACK9=1;
+
+   	if(ECanaRegs.CANRMP.bit.RMP2==1) //接收另一控制器信息
+    { 
+      ECanaRegs.CANRMP.bit.RMP2=1;
+      TestMbox1=ECanaMboxes.MBOX2.MDRL.all;   
+      TestMbox2=ECanaMboxes.MBOX2.MDRH.all;
+      if(TestMbox2==0x444d3143)      //查询271
+	  { 
+	    TestMbox1=(TestMbox1&0x11110000)>>16;
+	    if(TestMbox1>=0x00000001)     //1区出现故障
+		{ //Flag_1abcHeat_OK=1;             //1区加热故障	 
+		}
+        TestMbox1=ECanaMboxes.MBOX2.MDRL.all;
+        TestMbox1=(TestMbox1&0x8888000)>>15;
+	    if(TestMbox1>=0x00000001)     //2区出现故障
+		{// Flag_2abcHeat_OK=1;             //2区加热故障
+		} 
+        TestMbox1=ECanaMboxes.MBOX2.MDRL.all;
+        TestMbox1=(TestMbox1&0x4444000)>>14;
+	    if(TestMbox1>=0x00000001)     //3区出现故障
+		{// Flag_3abcHeat_OK=1;             //3区加热故障
+		} 
+        TestMbox1=ECanaMboxes.MBOX2.MDRL.all;
+        TestMbox1=(TestMbox1&0x2222000)>>13;
+	    if(TestMbox1>=0x00000001)     //4区出现故障
+		{ //Flag_4abcHeat_OK=1;             //4区加热故障	
+		}  
+			  
+	    TestMbox1=ECanaMboxes.MBOX2.MDRL.all;
+        if((TestMbox1&0x2000000)==0x2000000)
+		{ Flag_Left4_OK=1;       //另一控制器左4断路
+		}
+        if((TestMbox1&0x4000000)==0x4000000)
+		{ Flag_Left3_OK=1;       //另一控制器左3断路
+		} 
+        if((TestMbox1&0x8000000)==0x8000000)
+		{ Flag_Left2_OK=1;       //另一控制器左2断路
+		}	   
+        if((TestMbox1&0x10000000)==0x10000000)
+		{ Flag_Left1_OK=1;       //另一控制器左1断路
+		}	   
+
+        if((TestMbox1&0x200000)==0x200000)
+		{ Flag_Right4_OK=1;       //另一控制器右4断路
+		}
+        if((TestMbox1&0x400000)==0x400000)
+		{ Flag_Right3_OK=1;       //另一控制器右3断路
+		} 
+        if((TestMbox1&0x800000)==0x800000)
+		{ Flag_Right2_OK=1;       //另一控制器右2断路
+		}	   
+        if((TestMbox1&0x1000000)==0x1000000)
+		{ Flag_Right1_OK=1;       //另一控制器右1断路
+		} 
+        
+		/////////////////////////////////////////////
+        TestMbox1=(TestMbox1&0x1fffe000)>>13;
+		if(TestMbox1>=0x1)
+		{ Flag_Otherside_OK=1;     //分系统另一边故障
+		}
+	  }
+     
+      if(TestMbox2==0x444d3244)       //查询272
+	  { TestMbox1=(TestMbox1|0xffff9fff)>>13;
+	    if(TestMbox1==0)
+		{ Flag_RightGroudBIT_Start=1;
+		}
+	  } 
+	  if(TestMbox2==0x444d3344)       //查询273
+	  { TestMbox1=(TestMbox1|0xffff2fff)>>14;
+	    if(TestMbox1==1)
+		{ if(Flag_RightGroudBIT_Start==1)
+		  {Flag_LeftGroudBIT_Finish=1;  //左控制器完成地面维护
+		  }
+		}
+	  }    
+    }
+   //////////////////////////////////////////////////////////////
+    if(ECanaRegs.CANRMP.bit.RMP3==1)  //接收试验器信息
+    { ECanaRegs.CANRMP.bit.RMP3=1;
+      if(Flag_Air==0)  //飞机在地面
+      { TestMbox3=ECanaMboxes.MBOX3.MDRL.all;
+        TestMbox4=ECanaMboxes.MBOX3.MDRH.all;
+
+         //////接收到硬件版本号//////////////
+        if((TestMbox4&0xffff0000)==0x58580000)
+		{ 
+		  //////////硬件版本号保存///////////////////
+          rambase1=(Uint16 *)RAMBASE1; 
+          tmp=(Uint16)TestMbox3&0xff;    
+          Data1_Save();
+          tmp=(Uint16)(TestMbox3>>8)&0xff;
+          Data1_Save();
+          tmp=(Uint16)(TestMbox3>>16)&0xff;
+          Data1_Save();
+          tmp=(Uint16)(TestMbox3>>24)&0xff;
+          Data1_Save();
+          tmp=(Uint16)TestMbox4&0xff; 
+          Data1_Save();
+		}	    
+         ////////接收到读存储器命令////////////
+        if((TestMbox4&0xffff0000)==0x44530000)
+        { ControllerTester_Can_Send();    
+		}
+         ////////接收到清除存储器命令/////////////
+        if((TestMbox4&0xffff0000)==0x51430000)
+		{ Store_Data_Clear(); 
+		}
+      }
+    }
+	Count_Can_Receive++;
+   }
+   EINT;
+}
+
+///////////////////掉电保护中断//////////////////////////////////
+
+interrupt void XINT13_isr(void)
+{  Uint32 i=0;
+   DINT;
+   
+   GpioMuxRegs.GPEMUX.bit.XNMI_XINT13_GPIOE2=0;
+   GpioMuxRegs.GPEDIR.bit.GPIOE2=0;
+   for(i=0;i<2000000;i++){}
+   if(GpioDataRegs.GPEDAT.bit.GPIOE2==0)
+   {  GpioDataRegs.GPBDAT.bit.GPIOB15=0;  //CPU发出故障信号
+      GpioDataRegs.GPADAT.bit.GPIOA9=1;
+      Flag_Work_End=0;
+      GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200;  //关闭所有加热
+      HighWord_271_Send=HighWord_271_Send&0xdfff;
+      LowWord_272_Send=LowWord_272_Send&0xdfff;
+	  Controller_Can_Send();    //左右CAN交流
+
+      tmp=0x45;
+      Data3_Save();
+      tmp=0x4e;
+      Data3_Save();
+      tmp=0x44;
+      Data3_Save();
+      while(1)
+      {GpioDataRegs.GPADAT.bit.GPIOA8=~GpioDataRegs.GPADAT.bit.GPIOA8;
+      }
+   }
+   EINT;
+}     
+
+///////////////////429接收中断//////////////////////////////////
+
+interrupt void XINT1_isr(void)
+{ Uint16 ix;
+  DINT;
+  if(PieCtrl.PIEACK.bit.ACK1==1)
+  { PieCtrl.PIEACK.bit.ACK1=1;
+   	
+   	Flag_429_Receive=1;	
+    GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfffc; 
+    for(ix=0;ix<10;ix++){}  
+    LowWord_Receive=*rambase6; 
+    for(ix=0;ix<10;ix++){}  
+    GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x3f;
+    GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0xfffd;
+    for(ix=0;ix<10;ix++){}
+    HighWord_Receive=*rambase6;
+    for(ix=0;ix<10;ix++){}   
+    GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all|0x3f;
+    
+    LowWord_Receive_Send=LowWord_Receive;  
+    HighWord_Receive_Send=HighWord_Receive;    
+    /////////接收LABEL274信号/////////////////////////////
+    if((LowWord_Receive&0xff)==0xbc)   
+    { Receive_274_Count=0;
+      Flag_274_Receive=1;
+      if((LowWord_Receive&0x600)==0x0000)  //274通讯正常
+	  { if((LowWord_Receive&0x8000)==0x0000)  //飞机在地面
+        { 
+          Flag_Air=0;         
+          if((LowWord_Receive&0x4000)==0x4000)  //要求地面维护  
+          { Flag_GroudBIT_Start=1;
+          }
+	      else
+	      { Flag_GroudBIT_OK=0;   //不要求地面维护,默认正常
+		    GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200; //关闭所有加热
+	      }
+		  if((LowWord_Receive&0x2000)==0x2000)  //取消地面维护
+		  { Flag_GroudBIT_Start=0;
+		     GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200; //关闭所有加热
+		  }
+
+        }
+	    else
+	    { Flag_Air=1;     //飞机在空中
+	    }
+		//////////////////////////////////////////////////////
+        if((HighWord_Receive&0x1)==0x1)   //要求发送软硬件配置信息
+		{  VersionNumber_Hardware_Send();   
+           VersionNumber_Software_Send();
+		}
+	  }
+    }
+    //////////接收LABEL213静温信号//////////////////////////////////
+    if((LowWord_Receive&0xff)==0x8b)
+    { temperature=0;
+	  Receive_213_Count=0;
+      Flag_213_Receive=1;
+      if((LowWord_Receive&0x600)==0x600)   //213通讯正常 
+	  { if((HighWord_Receive&0x8000)==0x0000)  //温度为正
+        { HighWord_Receive=HighWord_Receive&0x7fff;
+	      temperature=(float)HighWord_Receive*0.01;
+		  if((temperature>=0.0)&&(temperature<5.0))
+		  { Flag_Temperature2_Bad=0;
+		    Time2_Heat=250;		    
+		    Flag_Temperature_Over=0; 
+		  }
+		  if(temperature>=5.0)   
+		  { GpioDataRegs.GPADAT.all=(GpioDataRegs.GPADAT.all&0x7ff)|0x200;  //关闭所有加热 
+		    LowWord_272_Send=LowWord_272_Send&0xdfff; 
+		    Flag_Temperature_Over=1; 
+		  }              
+	    }
+	    else        //温度为负
+	    { Flag_Temperature_Over=0; 
+	      HighWord_Receive=HighWord_Receive&0x7fff;		  
+	      HighWord_Receive=HighWord_Receive-0x1;
+		  HighWord_Receive=~HighWord_Receive;
+          HighWord_Receive=HighWord_Receive&0x7fff;
+          temperature=(float)HighWord_Receive*0.01;
+		  if(temperature>=20.0)   
+		  {  Flag_Temperature2_Bad=1;
+		     Time2_Heat=385;
+		  }
+		  if((temperature>=0.0)&&(temperature<20.0))
+		  { Flag_Temperature2_Bad=0;
+		    Time2_Heat=250;		    
+		  }           
+	    }
+	  }             
+      tmp=LowWord_Receive&0xff;    //保存到外部存储器中
+      Data3_Save();
+      tmp=LowWord_Receive>>8;
+      Data3_Save();
+      tmp=HighWord_Receive&0xff;    
+      Data3_Save();
+      tmp=HighWord_Receive>>8;
+      Data3_Save();
+    }
+  }
+  EINT;
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+
+///////////////////左平尾短路中断//////////////////////////////////
+interrupt void XINT2_isr(void)
+{ char dl=0;
+  Uint32 i=0;
+  DINT;
+  if(PieCtrl.PIEACK.bit.ACK1==1)
+  { PieCtrl.PIEACK.bit.ACK1=1;   
+    if(Flag_PowerOnBIT_Finish==0)     
+    { GpioMuxRegs.GPEMUX.bit.XINT2_ADCSOC_GPIOE1=1;
+	  GpioMuxRegs.GPEDIR.bit.GPIOE1=0;
+	  for(i=0;i<2000000;i++){}
+      if(GpioDataRegs.GPEDAT.bit.GPIOE1==1)
+	  { dl++;
+	  }
+	  for(i=0;i<2000000;i++){}
+	  if(GpioDataRegs.GPEDAT.bit.GPIOE1==1)
+	  { dl++;
+	  } 
+	  if(dl>=2) 
+	  { if((GpioDataRegs.GPADAT.all&0xf800)==0x8000)
+        { HighWord_271_Send=HighWord_271_Send|0x1e;       //左边4段全部短路
+	      Count_System_Error++;	     
+        }
+	    if(GpioDataRegs.GPADAT.bit.GPIOA11==1)
+        {  HighWord_271_Send=HighWord_271_Send|0x10;     //左第1段短路
+	       Count_System_Error++; 
+        }
+        if(GpioDataRegs.GPADAT.bit.GPIOA12==1)
+        {  HighWord_271_Send=HighWord_271_Send|0x8;     //左第2段短路
+	       Count_System_Error++; 
+	    }
+	    if(GpioDataRegs.GPADAT.bit.GPIOA13==1)
+	    { HighWord_271_Send=HighWord_271_Send|0x4;     //左第3段短路
+	      Count_System_Error++;
+	    } 
+	    if(GpioDataRegs.GPADAT.bit.GPIOA14==1)
+	    { HighWord_271_Send=HighWord_271_Send|0x2;     //左第4段短路
+	      Count_System_Error++; 
+	    } 		 
+         Controller_Can_Send();    //左右CAN交流
+         GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200; //关闭加热及安开
+         Flag_Work_End=0;
+	     GpioDataRegs.GPBDAT.bit.GPIOB15=0;  //CPU发出故障信号
+	     if(Flag_Otherside_OK==1)
+	     { HighWord_271_Send=HighWord_271_Send|0x4000;     //防除冰系统失效
+	     }		 
+	  }
+	}
+  }
+  EINT;   
+}
+
+///////////////////右平尾短路中断//////////////////////////////////
+interrupt void PDPINTA_isr(void)
+{  char dl=0;
+   Uint32 i=0;
+   DINT;
+   if(PieCtrl.PIEACK.bit.ACK1==1)
+   { PieCtrl.PIEACK.bit.ACK1=1;
+     if(Flag_PowerOnBIT_Finish==0)
+     { GpioMuxRegs.GPDMUX.bit.T1CTRIP_PDPA_GPIOD0=0;
+	   GpioMuxRegs.GPDDIR.bit.GPIOD0=0;
+	   for(i=0;i<2000000;i++){}
+       if(GpioDataRegs.GPDDAT.bit.GPIOD0==0)
+	   { dl++;
+	   }
+	   for(i=0;i<2000000;i++){}
+       if(GpioDataRegs.GPDDAT.bit.GPIOD0==0)
+	   { dl++;
+	   } 
+	   if(dl>=2)
+       { if((GpioDataRegs.GPADAT.all&0xf800)==0x8000)
+         { HighWord_271_Send=HighWord_271_Send|0x1;	   //右边4段全部短路
+	       LowWord_271_Send=LowWord_271_Send|0xe000;       
+	       Count_System_Error++; 
+         }
+         if(GpioDataRegs.GPADAT.bit.GPIOA11==1)
+         {  HighWord_271_Send=HighWord_271_Send|0x1;     //右1段短路
+	        Count_System_Error++; 
+         }
+	     if(GpioDataRegs.GPADAT.bit.GPIOA12==1)
+	     { LowWord_271_Send=LowWord_271_Send|0x8000;     //右第2段短路
+	        Count_System_Error++; 
+	     }
+	     if(GpioDataRegs.GPADAT.bit.GPIOA13==1)
+	     { LowWord_271_Send=LowWord_271_Send|0x4000;     //右第3段短路
+	        Count_System_Error++;
+	     }
+	     if(GpioDataRegs.GPADAT.bit.GPIOA14==1)
+	     { LowWord_271_Send=LowWord_271_Send|0x2000;     //右第4段短路
+	        Count_System_Error++; 
+	     }
+         Controller_Can_Send();    //左右CAN交流
+         GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff|0x200; //关闭加热及安开
+         Flag_Work_End=0;
+		 GpioDataRegs.GPBDAT.bit.GPIOB15=0;  //CPU发出故障信号
+	     if(Flag_Otherside_OK==1)
+	     { HighWord_271_Send=HighWord_271_Send|0x4000;     //防除冰系统失效
+	     }		 		 
+       }
+	 }
+   }
+  EINT; 
+}
+
+
+////////////////工作/备份切换//////////////////////////
+interrupt void PDPINTB_isr(void)
+{ Uint32 i=0; 
+  DINT;
+  if(PieCtrl.PIEACK.bit.ACK1==1)
+  { PieCtrl.PIEACK.bit.ACK1=1;
+    GpioMuxRegs.GPDMUX.bit.T3CTRIP_PDPB_GPIOD5=0;
+    GpioMuxRegs.GPDDIR.bit.GPIOD5=0;
+	for(i=0;i<2000000;i++){}
+    if(GpioDataRegs.GPDDAT.bit.GPIOD5==0)
+    { if(Count_Deice_Startup==0)   
+      { if(Flag_Controller_Judge==0)
+        { Flag_Controller_Judge=1;
+	    }
+        else
+	    { Flag_Controller_Judge=0; 
+	    }
+      }
+      if((Count_Deice_Startup==1)&&(Flag_Controller_Judge==0))  //本控制器为左主,拒绝切换
+      { Flag_Controller_Work=0;        //主控制器正常
+      }
+      if((Count_Deice_Startup==2)&&(Flag_Controller_Judge==0))  //本控制器为左辅
+      { Count_Deice_Startup=1;
+        Flag_Error_Replace=1;
+      }
+   
+      if((Count_Deice_Startup==2)&&(Flag_Controller_Judge==1))  //本控破魑抑?拒绝切换
+      { Flag_Controller_Work=0;        //主控制器正常
+      }
+      if((Count_Deice_Startup==1)&&(Flag_Controller_Judge==1))  //本控制器为辅
+      { Count_Deice_Startup=2;
+        Flag_Error_Replace=1;
+      }
+    }
+    
+   EvbRegs.EVBIMRA.bit.PDPINTB=1; 
+   EvbRegs.EVBIFRA.bit.PDPINTB=1;
+  } 
+  EINT;
+}
+
+///////////直接返回中断服务程序//////////////
+interrupt void nothing()
+{ EINT;
+  return;
+}
+
+/////////////主程序//////////////////////////////////////
+
+main()
+{  InitSysCtrl();
+	//把InitFlash（）函数搬移到ram中运行
+   MemCopy(&RamfuncsLoadStart, &RamfuncsLoadEnd, &RamfuncsRunStart);
+	
+   InitFlash();
+
+   DINT;
+   IER = 0x0000;
+   IFR = 0x0000;
+
+   InitPieCtrl();
+   InitPieVectTable();
+   InitGpio();
+   Init_eva_timer1();
+   Init_eva_timer2();
+   InitXINT1();
+   InitXINT2();
+   InitXINT13();
+   InitPDPINTA();
+   InitPDPINTB();	
+   InitXintf();
+		
+   EALLOW;
+   PieVectTable.XINT13=&XINT13_isr;
+   PieVectTable.XINT1=&XINT1_isr;
+   PieVectTable.XINT2=&XINT2_isr;
+   PieVectTable.PDPINTA=&PDPINTA_isr;
+   PieVectTable.PDPINTB=&PDPINTB_isr;	
+   PieVectTable.ADCINT=&ad_isr;
+   PieVectTable.T1PINT=&eva_timer1_isr;
+   PieVectTable.T2PINT=&eva_timer2_isr;
+   PieVectTable.ECAN0INTA = &ECAN0_ISR;
+   EDIS;  
+  
+   //开中断
+   IER |= (M_INT1|M_INT2|M_INT3|M_INT9);
+   PieCtrl.PIEIER1.bit.INTx1=1;
+   PieCtrl.PIEIER1.bit.INTx2=1;
+   PieCtrl.PIEIER1.bit.INTx4=1;
+   PieCtrl.PIEIER1.bit.INTx5=1;
+   PieCtrl.PIEIER1.bit.INTx6=1;
+   PieCtrl.PIEIER2.bit.INTx4=1;
+   PieCtrl.PIEIER3.bit.INTx1=1;
+   PieCtrl.PIEIER9.bit.INTx5=1;
+   EINT;  
+   ERTM;
+
+   LowWord_271_Send=0x00b9;   //初始化429信号
+   HighWord_271_Send=0x0000;  
+   LowWord_272_Send=0x40ba;   //上电默认左主控 
+   HighWord_272_Send=0x0000;
+   LowWord_273_Send=0x00bb;  
+   HighWord_273_Send=0x0001;
+
+   LowWord_300_Send=0x98c0;  
+   HighWord_300_Send=0x62c1;
+
+   LowWord_301_Send=0x90c1;  
+   HighWord_301_Send=0x64c1;
+
+   LowWord_302_Send=0x90c2;  
+   HighWord_302_Send=0x60c1;
+
+   LowWord_303_Send=0x88c3;  
+   HighWord_303_Send=0xc5;  
+
+   LowWord_304_Send=0x98c4;  
+   HighWord_304_Send=0x62c1;
+
+   LowWord_305_Send=0x90c5;  
+   HighWord_305_Send=0x64c1;
+
+   LowWord_306_Send=0x88c6;  
+   HighWord_306_Send=0x60c9;
+
+   LowWord_307_Send=0x98c7;  
+   HighWord_307_Send=0x60c1; 
+
+   LowWord_310_Send=0x88c8;  
+   HighWord_310_Send=0xc5; 
+     
+   ///////延时2s////////////////////////////
+   EvaRegs.T2CON.bit.TENABLE=1;
+   while(1)
+   { if(EvaTimer2InterruptCount>=20)
+     {EvaTimer2InterruptCount=0;
+	  break;
+	 }
+   } 
+   EvaRegs.T2CON.bit.TENABLE=0;
+	//打开EEPROM 数据保护
+//	OpenEepromDataProtection();
+      //VersionNumber_Hardware_Get();  
+   //////读取上次总故障次数///////////////
+   rambase2=(Uint16 *)RAMBASE2;
+   Data2_Read();
+   Count_System_Error=(Uint32)tmp1;
+   Data2_Read();
+   Count_System_Error=((Uint32)tmp1<<8)+Count_System_Error;
+   Data2_Read();
+   Count_System_Error=((Uint32)tmp1<<16)+Count_System_Error;
+   Data2_Read();
+   Count_System_Error=((Uint32)tmp1<<24)+Count_System_Error;
+   rambase2=(Uint16 *)RAMBASE2;
+
+   ///////读取洗谓崾曛?////////////////////////   
+   rambase3=(Uint16 *)RAMBASE3;
+   Data3_Read();
+   if(tmp1==0x45)
+   { Data3_Read();
+       if(tmp1==0x4e)
+	   { Data3_Read();
+	     if(tmp1==0x44)
+	     { Data3_Read();
+	     }
+	   }
+   }
+
+
+   //左/右控制判断//////////////////////
+   if(GpioDataRegs.GPFDAT.bit.GPIOF13==1)  
+   { Flag_Controller_Judge=1;         //右控制器
+   }
+   else
+   { Flag_Controller_Judge=0;        //左控制器	 
+   }
+
+   InitECan(); 
+   InitAdc(); 
+   ADC_adjust(); 
+   PowerOn_BIT();  //上电自检测
+   Init429();
+   E429_Send(); //429上报自检信息  
+   Controller_Can_Send();    //左右CAN交流  
+
+   if(Flag_PowerOnBIT_OK==0)  //上电自检正常
+   {  	        	 
+	  EvaRegs.T1CON.bit.TENABLE=1;  // 打开定时器1 
+	 
+	  while(1)
+	  { if(Flag_GroudBIT_OK==0) //地面维护正常
+	    { 
+	      if(Flag_GroudBIT_Start==1)   //开始地面维护
+	      { Ground_BIT();		     
+		  }
+	      else	         	      
+		  {	if(count1>=18)     //429发送及CAN每1.8s发送一次
+			{ count1=0;         
+	          Controller_Can_Send();	//CAN总线发送  
+		      if(Count_Can_Send!=Count_Can_Receive)
+			  {//////保存无can数据代码/////////////////
+	            Count_System_Error++;
+	            tmp=0x52;
+				Data3_Save();
+	            tmp=0x52;
+				Data3_Save();
+				tmp=0x43;
+				Data3_Save();
+				tmp=0x45;
+				Data3_Save();
+				tmp=0x45;
+				Data3_Save();
+				tmp=0x54;
+				Data3_Save();
+			  }
+
+		      tmp=(char)Count_System_Error&0xff;   //保存总故障次数
+			  Data2_Save();
+	          tmp=(char)Count_System_Error&0xff00>>8;
+	          Data2_Save();
+	          tmp=(char)Count_System_Error&0xff0000>>16;
+	          Data2_Save();
+	          tmp=(char)Count_System_Error&0xff000000>>24;
+	          Data2_Save();
+
+		      tmp=LowWord_271_Send&0xff;    //保存429信号
+	          Data3_Save();
+	          tmp=LowWord_271_Send>>8;
+	          Data3_Save();
+		      tmp=HighWord_271_Send&0xff;    
+	          Data3_Save();
+	          tmp=HighWord_271_Send>>8;
+	          Data3_Save();
+
+	          tmp=LowWord_272_Send&0xff;    
+	          Data3_Save();
+	          tmp=LowWord_272_Send>>8;
+	          Data3_Save();
+		      tmp=HighWord_272_Send&0xff;    
+	          Data3_Save();
+	          tmp=HighWord_272_Send>>8;
+	          Data3_Save();
+
+		      tmp=LowWord_273_Send&0xff;    
+	          Data3_Save();
+	          tmp=LowWord_273_Send>>8;
+	          Data3_Save();
+		      tmp=HighWord_273_Send&0xff;    
+	          Data3_Save();
+	          tmp=HighWord_273_Send>>8;
+	          Data3_Save();
+		    }
+
+		    if(Count_CPLD_Time>=5)    
+		    { Count_CPLD_Time=0;
+		      GpioDataRegs.GPFDAT.bit.GPIOF11=~GpioDataRegs.GPFDAT.bit.GPIOF11;
+		      if(Flag_429_Receive==1)
+			  { //////查询轮载信号次数/////////
+			    if(Flag_274_Receive==1)
+	            { Flag_274_Receive=0;
+				  Receive_274_Count=0;
+				}
+				else
+				{ Error_274_Count++;
+				  Count_System_Error++;
+				  Receive_274_Count++;	 
+				  tmp=0x34;	 //保存无轮载信号代码
+				  Data3_Save();
+				  tmp=0x37;
+				  Data3_Save();
+				  tmp=0x32;
+			      Data3_Save();
+			      tmp=0x34;
+				  Data3_Save();
+				  tmp=0x45;
+				  Data3_Save();
+				  tmp=0x54;
+				  Data3_Save();
+			    }
+				if(Error_274_Count>=20)  //累计20次未收到轮载信息,则飞机在空中
+				{ Flag_Air=1;	        
+				}
+				if(Receive_274_Count>=5)  //连续5次未收到轮载信息,则飞机在空中
+				{ Flag_Air=1;
+				  Receive_274_Count=0;
+				}		     
+				  ////////////////////////////////////////////////
+			    if(Flag_213_Receive==1)
+				{ Flag_213_Receive=0;
+				  Receive_213_Count=0;
+				}
+				else
+				{			  
+				  Count_System_Error++;
+			      Error_213_Count++;
+				  Receive_213_Count++;				 
+				  tmp=0x33;	  //保存无213信号代码
+			      Data3_Save();
+				  tmp=0x31;
+				  Data3_Save();
+			      tmp=0x32;
+				  Data3_Save();
+				  tmp=0x34;
+				  Data3_Save();
+				  tmp=0x45;
+				  Data3_Save();
+				  tmp=0x54;
+				  Data3_Save();        
+				}
+				 
+				if(Error_213_Count>=20)  //累计20次未收到静温信息,则飞机在严酷环境下
+				{ Flag_Temperature2_Bad=1;
+				  Time2_Heat=385;	 
+				  Error_213_Count=0;   
+				}
+				if(Receive_213_Count>=5)  //连续5次未收到静温信息,则飞机在严酷环境?
+			    { Flag_Temperature2_Bad=1;
+				  Time2_Heat=385;
+				  Receive_213_Count=0;
+				} 			  
+		      }       	   
+		    }
+			  		 
+			  /////////////////////////////////////////////////		  
+            if(((GpioDataRegs.GPBDAT.bit.GPIOB15==1)&&(Flag_Air==1))&&(Flag_Temperature_Over==0))                             
+	        { 
+	          if((Count_Deice_Startup==1)&&(Flag_Controller_Judge==0))
+			  { LowWord_272_Send=LowWord_272_Send|0x4000;       //左主控
+		        System_Heat();
+			  }
+			  if((Count_Deice_Startup==2)&&(Flag_Controller_Judge==1))
+			  { LowWord_272_Send=LowWord_272_Send&0xbfff;       //右主控
+		        System_Heat();
+			  }
+	        }
+	        else
+			{ GpioDataRegs.GPADAT.bit.GPIOA9=1;
+			  Flag_Work_End=0;
+		      GpioDataRegs.GPADAT.all=GpioDataRegs.GPADAT.all&0x7ff; //关闭所有加热
+		      HighWord_271_Send=HighWord_271_Send&0xdfff;
+		      LowWord_272_Send=LowWord_272_Send&0xdfff;
+		    }			  
+		  }          
+		}
+        else
+        { GpioDataRegs.GPADAT.bit.GPIOA8=~GpioDataRegs.GPADAT.bit.GPIOA8;
+        }
+	  }	      
+   }
+   else
+   { GpioDataRegs.GPADAT.bit.GPIOA8=~GpioDataRegs.GPADAT.bit.GPIOA8;
+   }
+}
+
+
+
+
+
