@@ -1,0 +1,101 @@
+----------------------------  apf_one.pjt - Debug  ----------------------------
+[APF_One_RMS200.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "APF_One_RMS200.c"
+
+INTERNAL ERROR: D:\CCStudio_v3.3\C2000\cgtools\bin\asm2000.exe experienced a segmentation fault while
+                processing section .text file C:\Users\EasonIp\AppData\Local\Temp\0718011 line 6091
+
+This is a serious problem.  Please contact Customer
+Support with this message and a copy of the input file
+and help us to continue to make the tools more robust.
+
+
+>> Compilation failure
+
+[DSP2833x_Adc.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_Adc.c"
+
+INTERNAL ERROR: D:\CCStudio_v3.3\C2000\cgtools\bin\asm2000.exe experienced a segmentation fault while
+                processing section .text file C:\Users\EasonIp\AppData\Local\Temp\0866011 line 5819
+
+This is a serious problem.  Please contact Customer
+Support with this message and a copy of the input file
+and help us to continue to make the tools more robust.
+
+
+>> Compilation failure
+
+[DSP2833x_ADC_cal.asm] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_ADC_cal.asm"
+
+[DSP2833x_CodeStartBranch.asm] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_CodeStartBranch.asm"
+
+[DSP2833x_CpuTimers.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_CpuTimers.c"
+
+[DSP2833x_DefaultIsr.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_DefaultIsr.c"
+
+INTERNAL ERROR: D:\CCStudio_v3.3\C2000\cgtools\bin\asm2000.exe experienced a segmentation fault while
+                processing section .text file C:\Users\EasonIp\AppData\Local\Temp\0720411 line 7493
+
+This is a serious problem.  Please contact Customer
+Support with this message and a copy of the input file
+and help us to continue to make the tools more robust.
+
+
+>> Compilation failure
+
+[DSP2833x_GlobalVariableDefs.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_GlobalVariableDefs.c"
+
+[DSP2833x_Gpio.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_Gpio.c"
+
+[DSP2833x_modbus.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_modbus.c"
+
+[DSP2833x_PieCtrl.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_PieCtrl.c"
+
+[DSP2833x_PieVect.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_PieVect.c"
+
+INTERNAL ERROR: D:\CCStudio_v3.3\C2000\cgtools\bin\asm2000.exe experienced a segmentation fault while
+                processing section .text file C:\Users\EasonIp\AppData\Local\Temp\0799211 line 5909
+
+This is a serious problem.  Please contact Customer
+Support with this message and a copy of the input file
+and help us to continue to make the tools more robust.
+
+
+>> Compilation failure
+
+[DSP2833x_Sci.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_Sci.c"
+
+INTERNAL ERROR: D:\CCStudio_v3.3\C2000\cgtools\bin\asm2000.exe experienced a segmentation fault while
+                processing section .text file C:\Users\EasonIp\AppData\Local\Temp\0986011 line 5825
+
+This is a serious problem.  Please contact Customer
+Support with this message and a copy of the input file
+and help us to continue to make the tools more robust.
+
+
+>> Compilation failure
+
+[DSP2833x_SysCtrl.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_SysCtrl.c"
+
+INTERNAL ERROR: D:\CCStudio_v3.3\C2000\cgtools\bin\asm2000.exe experienced a segmentation fault while
+                processing section .text file C:\Users\EasonIp\AppData\Local\Temp\0989611 line 5922
+
+This is a serious problem.  Please contact Customer
+Support with this message and a copy of the input file
+and help us to continue to make the tools more robust.
+
+
+>> Compilation failure
+
+[DSP2833x_usDelay.asm] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_usDelay.asm"
+
+[DSP2833x_Xintf.c] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -g -pdsw225 -fr"F:/A_05Projects_YT/CCS/C05/apf_one/apf_one/Debug" -i"../INCLUDE" -d"_DEBUG" -d"LARGE_MODEL" -ml -v28 --float_support=fpu32 -@"../apf_one/Debug.lkf" "DSP2833x_Xintf.c"
+
+[Linking...] "D:\CCStudio_v3.3\C2000\cgtools\bin\cl2000" -@"Debug.lkf"
+<Linking>
+>> 072883:   error: system error, can't open file
+                    'F:\\A_05Projects_YT\\CCS\\C05\\apf_one\\apf_one\\Debug\\APF_One_RMS200.obj' for input: No such file or directory
+
+
+>> Compilation failure
+
+Build Complete,
+  2 Errors, 0 Warnings, 0 Remarks.
